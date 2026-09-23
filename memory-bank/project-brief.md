@@ -182,10 +182,6 @@ El proyecto incluye un contenedor de desarrollo preconfigurado en `.devcontainer
 | 🟢 P2 | API de inventario unificado | Primer endpoint real |
 | 🟢 P2 | Base de conocimiento para RAG (CX) | Agente CX |
 | 🔵 P3 | Agente orquestador multi-departamento | Visión final |
-| 🟢 P2 | Pipeline de ingesta de pedidos | Datos |
-| 🟢 P2 | API de inventario unificado | Primer endpoint real |
-| 🟢 P2 | Base de conocimiento para RAG (CX) | Agente CX |
-| 🔵 P3 | Agente orquestador multi-departamento | Visión final |
 
 ### Documentos fundacionales del proyecto
 | Documento | Propósito | Estado |
