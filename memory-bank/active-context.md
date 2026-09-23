@@ -8,7 +8,7 @@
 
 ## 📌 Objetivo de la Sesión
 
-Establecer la infraestructura de trazabilidad del proyecto a través del `memory-bank/`, diseñar el plan de implementación del **Gestor de Incidencias** de TrackFlow, e **implementar la Fase 1 completa** (FastAPI + modelos BD + endpoints con auditoría).
+Establecer la infraestructura de trazabilidad del proyecto a través del `memory-bank/`, diseñar el plan de implementación del **Gestor de Incidencias** de TrackFlow, **implementar la Fase 1 completa** (FastAPI + modelos BD + endpoints con auditoría), crear **system prompts** para los 7 departamentos, y añadir **asignación + ciclo completo de estados** con endpoints dedicados.
 
 ---
 
@@ -25,10 +25,14 @@ Establecer la infraestructura de trazabilidad del proyecto a través del `memory
 - [x] **🚀 FASE 1 DEL GESTOR DE INCIDENCIAS IMPLEMENTADA** ✅
   - `services/api/` con FastAPI + SQLAlchemy + SQLite (dev)
   - 4 modelos: incidents, incident_audit_log, incident_comments, incident_attachments
-  - 6 endpoints REST en `/api/v1/incidents`
+  - 8 endpoints REST en `/api/v1/incidents`
   - Máquina de estados (9 estados) con transiciones validadas
   - Auditoría obligatoria en cada cambio (quién, qué, cuándo, por qué)
-  - Test funcional completo verificado
+  - **🧪 Asignación dedicada POST /{id}/assign** → auto-reported→triaging→assigned + audit (RF-03)
+  - **🔄 Transición explícita POST /{id}/transition** → ciclo completo validado (RF-04)
+  - **Ciclo completo verificado:** reported → assigned → in_progress → resolved → verified → closed → reopened → triaging → assigned → in_progress → resolved → verified → closed ✅
+  - **17 eventos de auditoría** registrados en el ciclo completo ✅
+  - 14 tests funcionales todos OK
 - [x] **System prompts creados en `agents/rules/` (x7 departamentos)** ✅
   - 01-almacen.md · 02-ultima-milla.md · 03-logistica-inversa.md
   - 04-cx.md · 05-comercial.md · 06-tecnologia.md · 07-direccion.md

@@ -264,6 +264,190 @@ class IncidentService:
             "by_priority": {row[0]: row[1] for row in by_priority_rows},
         }
 
+    # ── Assign to area (RF-03) ───────────────────────────────────────────
+
+    def assign_incident(
+        self,
+        incident_id: UUID,
+        assigned_area: str,
+        assigned_by: str,
+        assigned_to: str | None = None,
+        reason: str | None = None,
+    ) -> Incident:
+        """
+        Assign an incident to an area and optionally to a person.
+
+        Automatically transitions the incident:
+        - reported → triaging → assigned
+        - triaging → assigned
+        - assigned → (reassign, same area or new)
+        """
+        incident = self.get_incident(incident_id)
+        if not incident:
+            raise ValueError(f"Incidencia {incident_id} no encontrada")
+
+        old_status = incident.status
+
+        # ── Guard: can only assign from active states ────────────────────
+        assignable_from = {"reported", "triaging", "assigned", "in_progress", "reopened"}
+        if old_status not in assignable_from:
+            raise ValueError(
+                f"No se puede asignar una incidencia en estado '{old_status}'. "
+                f"Solo se puede asignar desde: {', '.join(sorted(assignable_from))}"
+            )
+
+        # ── Record old values for audit ──────────────────────────────────
+        old_area = str(incident.assigned_area) if incident.assigned_area else None
+        old_assignee = str(incident.assigned_to) if incident.assigned_to else None
+
+        # ── Apply assignment ─────────────────────────────────────────────
+        incident.assigned_area = assigned_area
+        incident.assigned_to = assigned_to
+        incident.assigned_by = assigned_by
+        incident.updated_at = datetime.now(timezone.utc)
+
+        # ── Auto-transition: reported → triaging → assigned ──────────────
+        if old_status == "reported":
+            incident.status = "triaging"
+            self.audit.log_change(
+                incident_id=incident.id,
+                changed_by=assigned_by,
+                field_name="status",
+                old_value=old_status,
+                new_value="triaging",
+                reason=f"Inicio de triaje para asignación a {assigned_area}",
+                change_type="update",
+            )
+
+        incident.status = "assigned"
+
+        # ── Log assignment in audit ──────────────────────────────────────
+        if old_area != assigned_area:
+            self.audit.log_change(
+                incident_id=incident.id,
+                changed_by=assigned_by,
+                field_name="assigned_area",
+                old_value=old_area,
+                new_value=assigned_area,
+                reason=reason or f"Asignación a área {assigned_area}",
+                change_type="assignment",
+            )
+
+        if old_assignee != assigned_to:
+            self.audit.log_change(
+                incident_id=incident.id,
+                changed_by=assigned_by,
+                field_name="assigned_to",
+                old_value=old_assignee,
+                new_value=assigned_to,
+                reason=reason or f"Asignación a responsable {assigned_to}" if assigned_to else "Sin responsable asignado",
+                change_type="assignment",
+            )
+
+        self.audit.log_change(
+            incident_id=incident.id,
+            changed_by=assigned_by,
+            field_name="assigned_by",
+            old_value=None,
+            new_value=assigned_by,
+            reason=reason or f"Asignación realizada por {assigned_by}",
+            change_type="update",
+        )
+
+        self.audit.log_change(
+            incident_id=incident.id,
+            changed_by=assigned_by,
+            field_name="status",
+            old_value="triaging" if old_status == "reported" else old_status,
+            new_value="assigned",
+            reason=reason or f"Incidencia asignada a {assigned_area}",
+            change_type="update",
+        )
+
+        self.db.commit()
+        self.db.refresh(incident)
+        return incident
+
+    # ── Transition status (RF-04) ────────────────────────────────────────
+
+    def transition_status(
+        self,
+        incident_id: UUID,
+        new_status: str,
+        changed_by: str,
+        reason: str | None = None,
+        resolution: str | None = None,
+        resolved_by: str | None = None,
+    ) -> Incident:
+        """
+        Perform an explicit status transition on an incident.
+
+        Validates the transition against the state machine.
+        Special handling for:
+        - resolved: sets resolved_at / resolved_by
+        - reopened: clears resolution data
+        - closed: finalises
+        - cancelled: requires reason
+        """
+        incident = self.get_incident(incident_id)
+        if not incident:
+            raise ValueError(f"Incidencia {incident_id} no encontrada")
+
+        old_status = incident.status
+
+        # ── Validate transition ──────────────────────────────────────────
+        if not self._is_valid_transition(old_status, new_status):
+            raise ValueError(
+                f"Transición no válida: {old_status} → {new_status}. "
+                f"Desde '{old_status}' solo puedes ir a: "
+                f"{', '.join(sorted(VALID_TRANSITIONS.get(old_status, set())))}"
+            )
+
+        # ── Require reason for certain transitions ───────────────────────
+        if (old_status, new_status) in TRANSITIONS_REQUIRING_REASON and not reason:
+            raise ValueError(
+                f"La transición {old_status} → {new_status} requiere un motivo (reason)."
+            )
+
+        # ── Side effects per transition ──────────────────────────────────
+        if new_status == "resolved":
+            if not resolution:
+                raise ValueError("Para pasar a 'resolved' debes proporcionar una resolución (resolution).")
+            incident.resolution = resolution
+            incident.resolved_at = datetime.now(timezone.utc)
+            incident.resolved_by = resolved_by or changed_by
+
+        elif new_status == "reopened":
+            # Clear resolution data to signal it's active again
+            incident.resolution = None
+            incident.resolved_at = None
+            incident.resolved_by = None
+
+        elif new_status == "cancelled":
+            # Keep the resolution as the cancellation note
+            if resolution:
+                incident.resolution = resolution
+
+        # ── Apply the transition ─────────────────────────────────────────
+        incident.status = new_status
+        incident.updated_at = datetime.now(timezone.utc)
+
+        # ── Classify and log ─────────────────────────────────────────────
+        change_type = self._classify_status_change(old_status, new_status)
+        self.audit.log_change(
+            incident_id=incident.id,
+            changed_by=changed_by,
+            field_name="status",
+            old_value=old_status,
+            new_value=new_status,
+            reason=reason or f"Transición de {old_status} → {new_status}",
+            change_type=change_type,
+        )
+
+        self.db.commit()
+        self.db.refresh(incident)
+        return incident
+
     # ── Private helpers ──────────────────────────────────────────────────
 
     @staticmethod

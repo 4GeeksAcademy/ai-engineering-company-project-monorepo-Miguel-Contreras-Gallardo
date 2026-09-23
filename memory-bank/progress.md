@@ -25,11 +25,14 @@ Configurar infraestructura de trazabilidad del proyecto + diseño + implementaci
 - [x] **🚀 FASE 1 DEL GESTOR DE INCIDENCIAS IMPLEMENTADA** ✅✅✅
   - `services/api/` con FastAPI + SQLAlchemy
   - 4 modelos: incidents, incident_audit_log, incident_comments, incident_attachments
-  - 6 endpoints REST con validación de transiciones y auditoría obligatoria
-  - Máquina de estados (9 estados) con transiciones validadas
+  - **8 endpoints REST**: CRUD + assign + transition + audit + stats
+  - Asignación dedicada POST /{id}/assign (reported→triaging→assigned automático)
+  - Transición explícita POST /{id}/transition con efectos secundarios (resolved, reopened, cancelled)
+  - Máquina de estados (9 estados) con transiciones validadas + motivo requerido para transiciones clave
   - AuditService que registra quién, qué, cuándo y por qué cada cambio
   - Schemas Pydantic v2 con validación de canales/categorías/prioridades del CONTEXT.md
-  - Test completo: creación, transiciones, asignación, auditoría (5 registros), rechazo de inválidas → OK
+  - **Test completo**: 14 tests funcionales (ciclo reported→closed→reopened→closed, transiciones inválidas, filtros, estadísticas, 404) → ✅ todos OK
+  - **17 eventos de auditoría** en ciclo completo con reapertura
 - [x] **System prompts de agentes creados** (`agents/rules/` — 7 departamentos) 🆕
   - 01-almacen.md · 02-ultima-milla.md · 03-logistica-inversa.md
   - 04-cx.md · 05-comercial.md · 06-tecnologia.md · 07-direccion.md
@@ -61,6 +64,7 @@ Configurar infraestructura de trazabilidad del proyecto + diseño + implementaci
 | Servicios implementados | **1 (api-incidents)** | 2026-09-23 |
 | Agentes implementados | 0 (7 system prompts listos) | 2026-09-23 |
 | Planes de implementación | 1 (incident-manager) | 2026-09-23 |
-| Archivos de código ejecutable | 15 (models, schemas, services, routers, main) | 2026-09-23 |
-| Endpoints REST operativos | 6 (POST, GET, GET/{id}, PATCH, GET/audit, GET/stats) | 2026-09-23 |
+| Archivos de código ejecutable | 17 (models, schemas, services, routers, main, test) | 2026-09-23 |
+| Endpoints REST operativos | **8** (POST create, GET list, GET/{id}, PATCH update, POST assign, POST transition, GET audit, GET stats) | 2026-09-23 |
+| Tests funcionales | **14 tests** — ciclo completo verificado ✅ | 2026-09-23 |
 | Archivos en agents/rules/ | **7** | 2026-09-23 |

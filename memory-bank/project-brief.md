@@ -158,10 +158,11 @@ El proyecto incluye un contenedor de desarrollo preconfigurado en `.devcontainer
 - ✅ **🚀 FASE 1 DEL GESTOR DE INCIDENCIAS IMPLEMENTADA** 🆕
   - `services/api/` con FastAPI + SQLAlchemy + SQLite (dev)
   - 4 modelos: incidents, incident_audit_log, incident_comments, incident_attachments
-  - 6 endpoints REST en `/api/v1/incidents`
+  - **8 endpoints REST**: create, list, get, update, **assign** (+auto-transición), **transition** (ciclo completo), audit trail, stats
   - Máquina de estados (9 estados) con transiciones validadas
   - Auditoría obligatoria (quién, qué, cuándo, por qué cada cambio)
-  - Test funcional completo verificado ✅
+  - Asignación dedicada a área responsable con registro de assigned_by
+  - Ciclo completo verificado: reported → ... → closed → reopened → ... → closed (14 tests funcionales ✅)
 - ✅ Tipos base en `packages/shared/types/index.ts`
 - ✅ Template de agente (`agents/_template/agent.py`)
 - ✅ **System prompts de agentes** (`agents/rules/` — 7 departamentos) 🆕

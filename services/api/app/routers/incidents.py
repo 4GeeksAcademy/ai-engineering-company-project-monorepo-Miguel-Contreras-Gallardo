@@ -19,6 +19,8 @@ from app.schemas.incident import (
     IncidentUpdate,
     IncidentResponse,
     IncidentStats,
+    IncidentAssign,
+    IncidentTransition,
 )
 from app.schemas.audit import AuditLogResponse
 from app.services.incident_service import IncidentService
@@ -89,6 +91,21 @@ def list_incidents(
     }
 
 
+# ── GET: Stats ───────────────────────────────────────────────────────────────
+
+@router.get(
+    "/stats",
+    response_model=IncidentStats,
+    summary="Estadísticas de incidencias",
+    description="Agregación de incidencias por estado, categoría y prioridad.",
+)
+def get_stats(
+    db: Session = Depends(get_db),
+):
+    service = IncidentService(db)
+    return service.get_stats()
+
+
 # ── GET: Get incident by ID ──────────────────────────────────────────────────
 
 @router.get(
@@ -130,7 +147,7 @@ def update_incident(
         incident = service.update_incident(incident_id, data)
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(e),
         )
     if not incident:
@@ -166,16 +183,76 @@ def get_audit_trail(
     return audit_service.get_audit_trail(incident_id)
 
 
-# ── GET: Stats ───────────────────────────────────────────────────────────────
+# ── POST: Assign incident to area (RF-03) ──────────────────────────────────
 
-@router.get(
-    "/stats",
-    response_model=IncidentStats,
-    summary="Estadísticas de incidencias",
-    description="Agregación de incidencias por estado, categoría y prioridad.",
+@router.post(
+    "/{incident_id}/assign",
+    response_model=IncidentResponse,
+    summary="Asignar incidencia a área responsable (RF-03)",
+    description="Asigna una incidencia a un área y opcionalmente a una persona. "
+                "Auto-transiciona: reported → triaging → assigned. "
+                "Cada cambio queda registrado en el audit log.",
 )
-def get_stats(
+def assign_incident(
+    incident_id: UUID,
+    data: IncidentAssign,
     db: Session = Depends(get_db),
 ):
     service = IncidentService(db)
-    return service.get_stats()
+    try:
+        incident = service.assign_incident(
+            incident_id=incident_id,
+            assigned_area=data.assigned_area,
+            assigned_by=data.assigned_by,
+            assigned_to=data.assigned_to,
+            reason=data.reason,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(e),
+        )
+    if not incident:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Incidencia {incident_id} no encontrada",
+        )
+    return incident
+
+
+# ── POST: Transition status (RF-04) ─────────────────────────────────────────
+
+@router.post(
+    "/{incident_id}/transition",
+    response_model=IncidentResponse,
+    summary="Transicionar estado de incidencia (RF-04)",
+    description="Cambia el estado de una incidencia validando la transición contra la máquina de estados. "
+                "Gestiona efectos secundarios: resolución (resolved), reapertura (reopened), cancelación (cancelled). "
+                "Todo queda registrado en el audit log.",
+)
+def transition_status(
+    incident_id: UUID,
+    data: IncidentTransition,
+    db: Session = Depends(get_db),
+):
+    service = IncidentService(db)
+    try:
+        incident = service.transition_status(
+            incident_id=incident_id,
+            new_status=data.status,
+            changed_by=data.changed_by,
+            reason=data.reason,
+            resolution=data.resolution,
+            resolved_by=data.resolved_by,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(e),
+        )
+    if not incident:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Incidencia {incident_id} no encontrada",
+        )
+    return incident

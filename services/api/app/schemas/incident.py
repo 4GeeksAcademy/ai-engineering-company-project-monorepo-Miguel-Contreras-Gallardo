@@ -108,6 +108,7 @@ class IncidentUpdate(BaseModel):
     # Asignación
     assigned_area: Optional[str] = Field(None)
     assigned_to: Optional[str] = Field(None, max_length=100)
+    assigned_by: Optional[str] = Field(None, max_length=100, description="Email o ID de quien asigna")
 
     # Estado
     status: Optional[str] = Field(None)
@@ -216,3 +217,46 @@ class IncidentStats(BaseModel):
     by_status: dict[str, int]
     by_category: dict[str, int]
     by_priority: dict[str, int]
+
+
+# ── Assign ───────────────────────────────────────────────────────────────────
+
+class IncidentAssign(BaseModel):
+    """Schema for assigning an incident to an area and/or person."""
+
+    assigned_area: str = Field(..., description="Área responsable (almacen, ultima_milla, logistica_inversa, cx, tecnologia, comercial)")
+    assigned_to: Optional[str] = Field(None, max_length=100, description="Persona responsable asignada")
+    assigned_by: str = Field(..., min_length=1, max_length=100, description="Email o ID de quien asigna")
+    reason: Optional[str] = Field(None, description="Motivo de la asignación")
+
+    @field_validator("assigned_area")
+    @classmethod
+    def validate_assigned_area(cls, v: str) -> str:
+        v_lower = v.lower()
+        if v_lower not in CATEGORIES:
+            raise ValueError(
+                f"Área '{v}' no válida. Opciones: {', '.join(sorted(CATEGORIES))}"
+            )
+        return v_lower
+
+
+# ── Transition ───────────────────────────────────────────────────────────────
+
+class IncidentTransition(BaseModel):
+    """Schema for performing an explicit status transition."""
+
+    status: str = Field(..., description="Nuevo estado")
+    changed_by: str = Field(..., min_length=1, max_length=100, description="Email o ID del usuario")
+    reason: Optional[str] = Field(None, description="Motivo de la transición")
+    resolution: Optional[str] = Field(None, description="Resolución (obligatorio si status=resolved)")
+    resolved_by: Optional[str] = Field(None, max_length=100, description="Quién resuelve (opcional, por defecto changed_by)")
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v: str) -> str:
+        v_lower = v.lower()
+        if v_lower not in STATUSES:
+            raise ValueError(
+                f"Estado '{v}' no válido. Opciones: {', '.join(sorted(STATUSES))}"
+            )
+        return v_lower
