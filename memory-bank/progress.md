@@ -21,6 +21,7 @@ Configurar infraestructura de trazabilidad del proyecto.
 - [x] `progress.md` — Registro cronológico de progreso
 - [x] `decisions.md` — Architecture Decision Records (ADR)
 - [x] `system-patterns.md` — Patrones y convenciones del proyecto
+- [x] `audit.md` — Auditoría completa de discrepancias real vs documentación ✅ **(NUEVO)**
 - [x] Sincronización con `/memories/repo/` de Copilot
 
 ### Pendientes (detallados en project-brief.md)

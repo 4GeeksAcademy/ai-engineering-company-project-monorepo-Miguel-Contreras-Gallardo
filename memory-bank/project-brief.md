@@ -2,7 +2,7 @@
 
 > **Última actualización:** 2026-09-23
 > **Proyecto:** Plataforma de Automatización e IA para TrackFlow (4Geeks Academy — AI Engineering)
-> **Este documento es la fuente única de contexto del proyecto. Léelo siempre antes de empezar a trabajar.**
+> **Este documento es la fuente única de contexto del proyecto. Léalo siempre antes de empezar a trabajar.**
 
 ---
 
@@ -98,12 +98,20 @@ Consulta (email/WhatsApp/tel) → Clasificación automática →
 | Backend API | **Python — FastAPI** | 📌 Por implementar |
 | Frontend | Por definir | ❓ Pendiente decisión |
 | Agentes IA | LangChain / CrewAI / LangGraph | ❓ Pendiente decisión |
-| Skills/Capacidades | Módulos Python reutilizables | 📌 Template disponible |
+| Skills/Capacidades | Módulos Python reutilizables | 📌 Template SKILL.md vacío |
 | Orquestación workflows | **n8n** | 📌 Sin implementar |
 | Datos | CSV → Pipelines → Procesado → Evaluación | 📌 Sin implementar |
 | Infraestructura | **Docker / docker-compose** | 📌 Sin implementar |
-| Tipos compartidos | TypeScript (`@repo/shared-types`) | ✅ Esqueleto creado |
-| Control de versiones | Git + GitHub | ✅ Configurado |
+| Tipos TypeScript | TypeScript (`@repo/shared-types`) | ✅ Esqueleto creado (`Id`, `BaseEntity`) |
+| Tipos Python | Carpeta `shared/` (raíz) | 📁 Solo READMEs — pendiente definir relación con `packages/shared/` |
+| Control de versiones | Git + GitHub | ✅ Rama activa: `feature/incident-manager` |
+
+### Entorno de desarrollo (Devcontainer)
+El proyecto incluye un contenedor de desarrollo preconfigurado en `.devcontainer/`:
+- **Imagen:** `mcr.microsoft.com/devcontainers/universal:2`
+- **Gestor paquetes Python:** `uv` (configurado en post-create.sh con `uv sync`)
+- **Extensiones VS Code:** Python, Pylance, Jupyter, Docker, ESLint, Prettier, ErrorLens, GitLens, 4Geeks Student
+- **⚠️ Pendiente:** Crear `pyproject.toml` para que `uv sync` funcione correctamente
 
 ### Dependencias pendientes de decidir
 - Framework de agentes: LangChain vs CrewAI vs LangGraph
@@ -135,27 +143,42 @@ Consulta (email/WhatsApp/tel) → Clasificación automática →
 
 ### ¿Qué está hecho?
 - ✅ Análisis completo del briefing de TrackFlow
-- ✅ Elección de TrackFlow como empresa (por Miguel)
+- ✅ Elección de TrackFlow como empresa (`company-choice.md`)
+- ✅ Rama `feature/incident-manager` creada a partir de `main`
 - ✅ Estructura del monorepo creada (plantilla 4Geeks)
-- ✅ `memory-bank/` con trazabilidad completa
+- ✅ `CONTEXT.md` — Fuente única de verdad de TrackFlow
+- ✅ `memory-bank/` con trazabilidad completa (5 documentos)
+- ✅ `.devcontainer/` con entorno containerizado (imagen universal, `uv`, extensiones)
 - ✅ Tipos base en `packages/shared/types/index.ts`
 - ✅ Template de agente (`agents/_template/agent.py`)
-- ✅ Template de skill (`skills/_template/`)
+- ✅ Template de skill (`skills/_template/` — aunque SKILL.md vacío)
 - ✅ Script ejemplo de data analysis (`skills/data-analysis/scripts/pandas_clean.py`)
 
 ### ¿Qué falta? (Roadmap)
-| Prioridad | Tarea | Impacto |
-|---|---|---|
-| 🔴 P0 | Crear `CONTEXT.md` como fuente única de verdad | Base de todo |
-| 🔴 P0 | Configurar `.gitignore` | Seguridad |
-| 🔴 P0 | Crear `requirements.txt` o `pyproject.toml` raíz | Reproducibilidad |
+| Prioridad | Tarea | Impacto | Notas |
+|---|---|---|---|
+| 🔴 P0 | Crear `pyproject.toml` para que `uv sync` funcione | Reproducibilidad | El devcontainer ya ejecuta `uv sync` pero falla |
+| 🔴 P0 | Decidir futuro de rama `feature/incident-manager` | Gobernanza | ¿Renombrar o mantener? |
+| 🔴 P0 | Configurar `.gitignore` | Seguridad | Archivo vacío actualmente |
+| 🔴 P0 | Poblar `skills/_template/SKILL.md` | Consistencia | Template vacío (0 bytes) |
 | 🟡 P1 | Inicializar `services/api/` con FastAPI | Primer endpoint |
-| 🟡 P1 | Crear system prompts en `agents/rules/` (x7 departamentos) | Base agentes |
+| 🟡 P1 | Crear carpeta `agents/rules/` + system prompts (x7 deptos) | Base agentes | Documentado pero carpeta no existe |
 | 🟡 P1 | Configurar `docker-compose.yml` con servicios base | Entorno local |
 | 🟢 P2 | Pipeline de ingesta de pedidos | Datos |
 | 🟢 P2 | API de inventario unificado | Primer endpoint real |
 | 🟢 P2 | Base de conocimiento para RAG (CX) | Agente CX |
 | 🔵 P3 | Agente orquestador multi-departamento | Visión final |
+
+### Documentos fundacionales del proyecto
+| Documento | Propósito | Estado |
+|---|---|---|
+| `company-choice.md` | Justificación de elección de TrackFlow + visión del agente orquestador | ✅ Original del alumno |
+| `CONTEXT-trackflow-briefing.md` | Briefing original proporcionado por 4Geeks | ✅ Histórico |
+| `CONTEXT.md` | Fuente única de verdad normalizada para agentes y servicios | ✅ Creado y commitado |
+| `memory-bank/` | Trazabilidad del proyecto | ✅ Activo |
+
+### Notas de auditoría
+> Existe un documento `memory-bank/audit.md` con el análisis detallado de discrepancias entre la documentación y la realidad del repositorio. Se recomienda revisarlo antes de cada sesión para priorizar correcciones.
 
 ### Alineación con hitos del curso
 | Hito | Módulo | Cómo se aplica a TrackFlow |
