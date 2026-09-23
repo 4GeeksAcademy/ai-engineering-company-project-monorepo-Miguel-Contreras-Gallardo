@@ -30,6 +30,11 @@ Configurar infraestructura de trazabilidad del proyecto + diseño + implementaci
   - AuditService que registra quién, qué, cuándo y por qué cada cambio
   - Schemas Pydantic v2 con validación de canales/categorías/prioridades del CONTEXT.md
   - Test completo: creación, transiciones, asignación, auditoría (5 registros), rechazo de inválidas → OK
+- [x] **System prompts de agentes creados** (`agents/rules/` — 7 departamentos) 🆕
+  - 01-almacen.md · 02-ultima-milla.md · 03-logistica-inversa.md
+  - 04-cx.md · 05-comercial.md · 06-tecnologia.md · 07-direccion.md
+  - Cada prompt incluye: identidad, responsabilidades, tipos de incidencia, flujo de trabajo, criterios de priorización, escalado y KPIs
+- [x] Fix duplicados en roadmap de project-brief.md
 - [x] Sincronización con `/memories/repo/` de Copilot
 
 ### Pendientes (detallados en project-brief.md)
@@ -38,7 +43,7 @@ Configurar infraestructura de trazabilidad del proyecto + diseño + implementaci
 | 🔴 P0 | ~~Configurar `.gitignore`~~ ✅ **HECHO** | Operaciones |
 | 🔴 P0 | ~~Crear `pyproject.toml` raíz~~ ✅ **HECHO** | Operaciones |
 | 🟡 P1 | ~~**Fase 1 Gestor Incidencias**~~ ✅ **HECHO** | Backend |
-| 🟡 P1 | Crear system prompts en `agents/rules/` (x7 deptos) | Agentes |
+| 🟡 P1 | ~~Crear system prompts en `agents/rules/` (x7 deptos)~~ ✅ **HECHO** | Agentes |
 | 🟡 P1 | Configurar `docker-compose.yml` con PostgreSQL + API | Infra |
 | 🟢 P2 | Pipeline de ingesta de pedidos | Datos |
 | 🟢 P2 | API de inventario unificado | Backend |
@@ -52,9 +57,10 @@ Configurar infraestructura de trazabilidad del proyecto + diseño + implementaci
 | Indicador | Valor | Fecha |
 |---|---|---|
 | Documentos en memory-bank | 6 activos | 2026-09-23 |
-| Departamentos con rules | 0 / 7 | 2026-09-23 |
+| Departamentos con rules | **7 / 7** ✅ | 2026-09-23 |
 | Servicios implementados | **1 (api-incidents)** | 2026-09-23 |
-| Agentes implementados | 0 | 2026-09-23 |
+| Agentes implementados | 0 (7 system prompts listos) | 2026-09-23 |
 | Planes de implementación | 1 (incident-manager) | 2026-09-23 |
 | Archivos de código ejecutable | 15 (models, schemas, services, routers, main) | 2026-09-23 |
 | Endpoints REST operativos | 6 (POST, GET, GET/{id}, PATCH, GET/audit, GET/stats) | 2026-09-23 |
+| Archivos en agents/rules/ | **7** | 2026-09-23 |

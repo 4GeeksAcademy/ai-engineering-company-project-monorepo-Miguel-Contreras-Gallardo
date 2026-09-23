@@ -164,6 +164,7 @@ El proyecto incluye un contenedor de desarrollo preconfigurado en `.devcontainer
   - Test funcional completo verificado ✅
 - ✅ Tipos base en `packages/shared/types/index.ts`
 - ✅ Template de agente (`agents/_template/agent.py`)
+- ✅ **System prompts de agentes** (`agents/rules/` — 7 departamentos) 🆕
 - ✅ Template de skill (`skills/_template/` — aunque SKILL.md vacío)
 - ✅ Script ejemplo de data analysis (`skills/data-analysis/scripts/pandas_clean.py`)
 
@@ -175,7 +176,7 @@ El proyecto incluye un contenedor de desarrollo preconfigurado en `.devcontainer
 | 🔴 P0 | Decidir futuro de rama `feature/incident-manager` | Gobernanza | D01: nombre vs alcance del proyecto |
 | 🔴 P0 | Poblar `skills/_template/SKILL.md` | Consistencia | Template vacío (0 bytes, D05) |
 | 🟡 P1 | ~~**Fase 1 Gestor Incidencias**~~ ✅ **HECHO** | Backend | Primer servicio real implementado |
-| 🟡 P1 | Crear carpeta `agents/rules/` + system prompts (x7 deptos) | Base agentes | D06: documentado pero carpeta no existe |
+| 🟡 P1 | ~~Crear carpeta `agents/rules/` + system prompts (x7 deptos)~~ ✅ **HECHO** | Base agentes | 7 prompts creados con identidad, flujo, priorización, KPIs, escalado |
 | 🟡 P1 | Configurar `docker-compose.yml` con PostgreSQL + API | Entorno local | Necesario para producción |
 | 🟡 P1 | Migrar a PostgreSQL + Alembic migrations | Persistencia | Actualmente SQLite (dev) |
 | 🟢 P2 | Pipeline de ingesta de pedidos | Datos |
