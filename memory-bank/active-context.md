@@ -38,6 +38,10 @@ Establecer la infraestructura de trazabilidad del proyecto a través del `memory
   - 04-cx.md · 05-comercial.md · 06-tecnologia.md · 07-direccion.md
 - [x] Fix duplicados en roadmap de project-brief.md
 - [x] Sincronización con `/memories/repo/`
+- [x] **Audit trail embebido en ficha de incidencia** ✅
+  - `IncidentResponse.audit_log[]` con todos los cambios de estado/responsable
+  - Cada evento incluye: `changed_at` (marca temporal), `changed_by` (autor), `field_name`, `old_value`, `new_value`, `change_type`
+  - Filtros por `status` (estado), `priority` (severidad), `assigned_area` verificados
 
 ---
 

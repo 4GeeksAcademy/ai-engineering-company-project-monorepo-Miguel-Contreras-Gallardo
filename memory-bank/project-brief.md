@@ -158,9 +158,11 @@ El proyecto incluye un contenedor de desarrollo preconfigurado en `.devcontainer
 - ✅ **🚀 FASE 1 DEL GESTOR DE INCIDENCIAS IMPLEMENTADA** 🆕
   - `services/api/` con FastAPI + SQLAlchemy + SQLite (dev)
   - 4 modelos: incidents, incident_audit_log, incident_comments, incident_attachments
-  - **8 endpoints REST**: create, list, get, update, **assign** (+auto-transición), **transition** (ciclo completo), audit trail, stats
+  - **8 endpoints REST**: create, list (con filtros status/priority/assigned_area), get (con audit trail embebido), update, **assign** (+auto-transición), **transition** (ciclo completo), audit trail, stats
   - Máquina de estados (9 estados) con transiciones validadas
   - Auditoría obligatoria (quién, qué, cuándo, por qué cada cambio)
+  - **Audit trail embebido** en la ficha de la incidencia (GET /{id}) — cada cambio de estado y responsable aparece con `changed_at` + `changed_by`
+  - **Filtros funcionales**: por estado (`status`), severidad (`priority`), área responsable (`assigned_area`)
   - Asignación dedicada a área responsable con registro de assigned_by
   - Ciclo completo verificado: reported → ... → closed → reopened → ... → closed (14 tests funcionales ✅)
 - ✅ Tipos base en `packages/shared/types/index.ts`

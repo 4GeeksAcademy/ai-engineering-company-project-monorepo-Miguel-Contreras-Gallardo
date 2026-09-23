@@ -39,6 +39,8 @@ Configurar infraestructura de trazabilidad del proyecto + diseño + implementaci
   - Cada prompt incluye: identidad, responsabilidades, tipos de incidencia, flujo de trabajo, criterios de priorización, escalado y KPIs
 - [x] Fix duplicados en roadmap de project-brief.md
 - [x] Sincronización con `/memories/repo/` de Copilot
+- [x] **Audit trail embebido en ficha de incidencia** — `GET /{id}` incluye `audit_log[]` con cada cambio de estado y responsable (marca temporal + autor) ✅
+- [x] **Filtros validados:** estado (`status`), severidad (`priority`), área responsable (`assigned_area`) funcionando en `GET /` ✅
 
 ### Pendientes (detallados en project-brief.md)
 | Prioridad | Tarea | Categoría |

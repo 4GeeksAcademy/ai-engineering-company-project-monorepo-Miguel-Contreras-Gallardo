@@ -11,6 +11,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.schemas.audit import AuditLogResponse
+
 
 # ── Validators ───────────────────────────────────────────────────────────────
 
@@ -165,7 +167,12 @@ class IncidentUpdate(BaseModel):
 # ── Response ─────────────────────────────────────────────────────────────────
 
 class IncidentResponse(BaseModel):
-    """Schema returned by the API when reading an incident."""
+    """Schema returned by the API when reading an incident.
+
+    Includes the full audit trail so that every state change and
+    assignment change is visible directly from the incident detail
+    (fiche de la incidencia), with timestamps and author.
+    """
 
     id: UUID
     title: str
@@ -187,6 +194,10 @@ class IncidentResponse(BaseModel):
     created_at: datetime
     created_by: str
     updated_at: datetime
+    audit_log: list[AuditLogResponse] = Field(
+        default_factory=list,
+        description="Historial de cambios (estado, responsable, etc.) con marca temporal y autor",
+    )
 
     model_config = {"from_attributes": True}
 

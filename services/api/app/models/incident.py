@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import Column, String, Text, DateTime, Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 
 from app.db.database import Base
 
@@ -143,6 +144,14 @@ class Incident(Base):
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    # ── Relationships ───────────────────────────────────────────────────
+    audit_log = relationship(
+        "IncidentAuditLog",
+        backref="incident",
+        lazy="selectin",
+        order_by="IncidentAuditLog.changed_at",
     )
 
     def dict(self):
