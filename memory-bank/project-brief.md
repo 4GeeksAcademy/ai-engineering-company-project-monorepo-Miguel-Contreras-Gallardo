@@ -1,0 +1,170 @@
+# 📋 Project Brief — TrackFlow AI Platform
+
+> **Última actualización:** 2026-09-23
+> **Proyecto:** Plataforma de Automatización e IA para TrackFlow (4Geeks Academy — AI Engineering)
+> **Este documento es la fuente única de contexto del proyecto. Léelo siempre antes de empezar a trabajar.**
+
+---
+
+## 🏢 1. CONTEXTO DE PRODUCTO Y NEGOCIO
+
+### 1.1 La Empresa
+
+**TrackFlow** es una empresa de logística de última milla y gestión de almacenes fundada en 2009 en **Los Ángeles, EE.UU.** Opera en dos mercados (EE.UU. y España) con almacenes en **Los Ángeles** y **Zaragoza**. Cuenta con ~130 empleados y factura ~9M€ anuales.
+
+**CEO:** Thomas Harry (Los Ángeles) · **CTO:** Andrés Kim (Zaragoza)
+
+### 1.2 Propuesta de Valor
+
+TrackFlow almacena inventario, prepara y empaqueta pedidos, los envía a través de una red de transportistas y gestiona las devoluciones para marcas de e-commerce. Las marcas se centran en vender; TrackFlow se encarga de que los productos lleguen al cliente.
+
+### 1.3 Estructura Organizativa y Problemas
+
+| Departamento | Responsable | Equipo | Problema principal |
+|---|---|---|---|
+| 🚚 Operaciones de Almacén | Ana Whitfield | ~70 operarios + 2 jefes de almacén | Sin visibilidad de inventario en tiempo real. Dos SGA distintos (LA: software comercial, Zaragoza: hoja de cálculo). Picking en papel. Pedidos entrantes por email transcritos manualmente. |
+| 📦 Última Milla y Transportistas | Carlos Vega | 6 coordinadores logísticos | Asignación manual de transportista por envío. Tracking en múltiples portales. 8 transportistas (UPS, FedEx, DHL, MRW, SEUR + locales). Sin datos históricos de rendimiento. |
+| 🔄 Logística Inversa | Sofía Ramos | 5 personas | 18-25% del volumen son devoluciones. Revisión 100% manual. Inspección subjetiva e inconsistente. Sin visibilidad de patrones de devolución. |
+| 📞 Experiencia al Cliente (CX) | Valentina Cruz | 15 agentes (LA + Zaragoza) | 80% consultas repetitivas. Sin sistema de tickets unificado. Sin base de conocimiento. Sin cobertura fuera de horario. B2B y B2C sin diferenciación. |
+| 🤝 Comercial y Relación Clientes | Miguel Torres | 4 account managers + 4 biz dev | Sin CRM. Informes a clientes mensuales hechos a mano. Sin visibilidad de riesgo de renovación. Contratos anuales. |
+| 💻 Tecnología | Andrés Kim | 7 personas (Zaragoza) | Arquitectura patchwork. Sin telemetría centralizada. Deploys de 1-2 semanas. Caídas detectadas por WhatsApp. |
+| 👔 Dirección Ejecutiva | Thomas Harry | — | Informe semanal consolidado manualmente (horas cada domingo). Datos con 1-2 días de retraso. |
+
+### 1.4 Entidades del Dominio (Modelo de Datos Conceptual)
+
+```
+Cliente (Marca) → Contrato → Pedido → Envío → TrackingEvent
+                                            → Devolución → Inspección
+                                LíneaPedido → SKU → Inventario (por almacén)
+
+Transportista → Tarifa → Ruta
+Cliente (Consumidor Final) → Consulta → Ticket
+```
+
+| Entidad | Descripción | Atributos clave |
+|---|---|---|
+| `Cliente (Marca)` | Empresa de e-commerce que contrata TrackFlow | id, nombre, pais, contrato, scoring_renovacion |
+| `SKU` | Unidad de stock | id, nombre, peso, dimensiones, categoria |
+| `Almacén` | Centro logístico | id, ubicacion (LA/Zaragoza), SGA_tipo |
+| `Inventario` | Stock de un SKU en un almacén | sku_id, almacen_id, cantidad, stock_minimo |
+| `Pedido` | Solicitud de envío de un cliente | id, cliente_id, estado, fecha, líneas |
+| `Envío` | Unidad logística hacia un destinatario | id, pedido_id, transportista_id, tracking_num, estado, destino |
+| `TrackingEvent` | Evento de seguimiento de un envío | envio_id, timestamp, estado, ubicacion |
+| `Devolución` | Producto devuelto por el consumidor | id, envio_id, motivo, estado_aprobacion, estado_inspeccion |
+| `Transportista` | Empresa de mensajería | id, nombre, pais, tarifas, metricas_rendimiento |
+| `Ticket` | Consulta de CX | id, origen (email/whatsapp/tel), cliente_tipo, estado, resolucion_automatica |
+
+### 1.5 Flujos de Proceso de Negocio Clave
+
+**① Recepción de Pedido → Despacho**
+```
+Email cliente → Parseo automático → Asignación almacén → Picking → Empaquetado → 
+Asignación transportista → Generación etiqueta → Recogida → En tránsito
+```
+
+**② Devolución**
+```
+Solicitud consumidor → Aprobación automática (reglas) → Etiqueta devolución → 
+Recogida transportista → Inspección (IA asiste) → Reacondicionar / Desechar → 
+Reingreso inventario
+```
+
+**③ Consulta Cliente**
+```
+Consulta (email/WhatsApp/tel) → Clasificación automática → 
+  - Seguimiento: respuesta automática con tracking
+  - Devolución: estado + instrucciones
+  - Otra: escalado a agente humano
+```
+
+### 1.6 KPIs y Métricas de Éxito del Negocio
+
+| KPI | Objetivo | Situación actual |
+|---|---|---|
+| Tasa entrega a tiempo | >97% | Sin datos estructurados |
+| Tiempo picking por pedido | <15 min | Sin medición |
+| Tasa devoluciones | 18-25% (referencia) | Sin análisis de causa raíz |
+| Resolución automática CX | >60% | 0% (todo manual) |
+| Frescura datos informe CEO | Tiempo real | 1-2 días de retraso |
+| Coste por kg enviado | Sin target | Sin datos por transportista |
+| Tiempo deploy nueva feature | <1 día | 1-2 semanas |
+
+---
+
+## 🧠 2. STACK TECNOLÓGICO
+
+| Capa | Tecnología | Estado |
+|---|---|---|
+| Backend API | **Python — FastAPI** | 📌 Por implementar |
+| Frontend | Por definir | ❓ Pendiente decisión |
+| Agentes IA | LangChain / CrewAI / LangGraph | ❓ Pendiente decisión |
+| Skills/Capacidades | Módulos Python reutilizables | 📌 Template disponible |
+| Orquestación workflows | **n8n** | 📌 Sin implementar |
+| Datos | CSV → Pipelines → Procesado → Evaluación | 📌 Sin implementar |
+| Infraestructura | **Docker / docker-compose** | 📌 Sin implementar |
+| Tipos compartidos | TypeScript (`@repo/shared-types`) | ✅ Esqueleto creado |
+| Control de versiones | Git + GitHub | ✅ Configurado |
+
+### Dependencias pendientes de decidir
+- Framework de agentes: LangChain vs CrewAI vs LangGraph
+- Frontend: Streamlit, Gradio, React, Next.js...
+- Base de datos: PostgreSQL, SQLite...
+- CRM: Integración con API externa vs construcción propia
+
+---
+
+## 🏛️ 3. ESTRUCTURA DEL MONOREPO
+
+| Carpeta | Propósito | Estado actual |
+|---|---|---|
+| `agents/` | Agentes de IA + tools + rules | 📁 Template + READMEs |
+| `services/` | Backend FastAPI centralizado | 📁 Solo READMEs |
+| `uis/` | Interfaces de usuario | 📁 Solo READMEs |
+| `data/` | raw/ → pipelines/ → process/ → eval/ | 📁 Solo READMEs |
+| `skills/` | Capacidades reutilizables | 📁 Template + script ejemplo |
+| `workflows/` | Flujos n8n | 📁 Solo READMEs |
+| `mcps/` | Servidores MCP | 📁 Solo READMEs |
+| `packages/shared/` | Tipos TypeScript compartidos | ⚡ `index.ts` con tipos base |
+| `memory-bank/` | Trazabilidad del proyecto ⭐ | ✅ Activo (5 docs) |
+| `infra/`, `scripts/`, `internal/` | Operaciones | 📁 Solo READMEs |
+| `docs/` | Documentación | 📁 Solo READMEs |
+
+---
+
+## 🌱 4. ESTADO ACTUAL DEL PROYECTO (Fase 0)
+
+### ¿Qué está hecho?
+- ✅ Análisis completo del briefing de TrackFlow
+- ✅ Elección de TrackFlow como empresa (por Miguel)
+- ✅ Estructura del monorepo creada (plantilla 4Geeks)
+- ✅ `memory-bank/` con trazabilidad completa
+- ✅ Tipos base en `packages/shared/types/index.ts`
+- ✅ Template de agente (`agents/_template/agent.py`)
+- ✅ Template de skill (`skills/_template/`)
+- ✅ Script ejemplo de data analysis (`skills/data-analysis/scripts/pandas_clean.py`)
+
+### ¿Qué falta? (Roadmap)
+| Prioridad | Tarea | Impacto |
+|---|---|---|
+| 🔴 P0 | Crear `CONTEXT.md` como fuente única de verdad | Base de todo |
+| 🔴 P0 | Configurar `.gitignore` | Seguridad |
+| 🔴 P0 | Crear `requirements.txt` o `pyproject.toml` raíz | Reproducibilidad |
+| 🟡 P1 | Inicializar `services/api/` con FastAPI | Primer endpoint |
+| 🟡 P1 | Crear system prompts en `agents/rules/` (x7 departamentos) | Base agentes |
+| 🟡 P1 | Configurar `docker-compose.yml` con servicios base | Entorno local |
+| 🟢 P2 | Pipeline de ingesta de pedidos | Datos |
+| 🟢 P2 | API de inventario unificado | Primer endpoint real |
+| 🟢 P2 | Base de conocimiento para RAG (CX) | Agente CX |
+| 🔵 P3 | Agente orquestador multi-departamento | Visión final |
+
+### Alineación con hitos del curso
+| Hito | Módulo | Cómo se aplica a TrackFlow |
+|---|---|---|
+| Web | HTML/CSS/JS | Landing corporativa + portal tracking público |
+| Programación | Python | Lógica de negocio, pipelines, API |
+| Backend | FastAPI | API centralizada de inventario, pedidos, tracking |
+| Telemetría | Monitoreo | Dashboards operativos + alertas |
+| RAG | Búsqueda semántica | Base de conocimiento CX + agente de consultas |
+| Agentes | Frameworks IA | Agente orquestador + agentes departamentales |
+| Workflows | n8n | Automatización multi-sistema |
+| Tiempo real | WebSockets | Tracking en vivo, dashboards en tiempo real |
