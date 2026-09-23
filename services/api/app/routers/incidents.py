@@ -106,6 +106,21 @@ def get_stats(
     return service.get_stats()
 
 
+# ── GET: Open by severity ────────────────────────────────────────────────────
+
+@router.get(
+    "/open-by-severity",
+    summary="Incidencias abiertas por severidad",
+    description="Volumen de incidencias abiertas (no cerradas ni canceladas) agrupadas "
+                "por prioridad. Ideal para widgets de dashboard.",
+)
+def get_open_by_severity(
+    db: Session = Depends(get_db),
+):
+    service = IncidentService(db)
+    return service.get_open_by_severity()
+
+
 # ── GET: Get incident by ID ──────────────────────────────────────────────────
 
 @router.get(

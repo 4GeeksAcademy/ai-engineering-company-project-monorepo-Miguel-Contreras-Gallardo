@@ -41,6 +41,11 @@ Configurar infraestructura de trazabilidad del proyecto + diseño + implementaci
 - [x] Sincronización con `/memories/repo/` de Copilot
 - [x] **Audit trail embebido en ficha de incidencia** — `GET /{id}` incluye `audit_log[]` con cada cambio de estado y responsable (marca temporal + autor) ✅
 - [x] **Filtros validados:** estado (`status`), severidad (`priority`), área responsable (`assigned_area`) funcionando en `GET /` ✅
+- [x] **Endpoint `GET /open-by-severity`** — volumen de incidencias abiertas (no cerradas/canceladas) agrupadas por prioridad ✅
+- [x] **Dashboard visual** `uis/dashboard-open-by-severity.html` — Chart.js doughnut chart con KPIs y auto-refresh 30s ✅
+  - Sirve estáticamente desde `/ui/dashboard-open-by-severity.html`
+  - CORS habilitado para acceso cross-origin
+  - 11 incidencias de prueba creadas y verificadas
 
 ### Pendientes (detallados en project-brief.md)
 | Prioridad | Tarea | Categoría |

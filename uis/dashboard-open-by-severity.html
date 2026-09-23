@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrackFlow — Panel de Incidencias</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js">
+    </script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem 1rem;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+        }
+
+        /* ── Header ──────────────────────────────────────── */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .brand h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #f8fafc;
+        }
+
+        .brand h1 span {
+            color: #38bdf8;
+        }
+
+        .brand .subtitle {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin-top: 0.2rem;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #1e293b;
+            padding: 0.5rem 1rem;
+            border-radius: 999px;
+            font-size: 0.8rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* ── KPI Cards ───────────────────────────────────── */
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .kpi-card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 1.25rem;
+            text-align: center;
+            border: 1px solid #334155;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .kpi-card .label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #94a3b8;
+            margin-bottom: 0.4rem;
+        }
+
+        .kpi-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .kpi-card .value.critica { color: #ef4444; }
+        .kpi-card .value.alta    { color: #f97316; }
+        .kpi-card .value.normal  { color: #eab308; }
+        .kpi-card .value.baja    { color: #22c55e; }
+
+        /* ── Chart Card ───────────────────────────────────── */
+        .chart-card {
+            background: #1e293b;
+            border-radius: 16px;
+            padding: 1.5rem;
+            border: 1px solid #334155;
+            margin-bottom: 1.5rem;
+        }
+
+        .chart-card h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #f1f5f9;
+            margin-bottom: 0.25rem;
+        }
+
+        .chart-card .chart-desc {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-bottom: 1.5rem;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 320px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* ── Footer ───────────────────────────────────────── */
+        footer {
+            margin-top: 2rem;
+            text-align: center;
+            font-size: 0.75rem;
+            color: #475569;
+        }
+
+        footer a {
+            color: #38bdf8;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        .error-msg {
+            display: none;
+            background: #450a0a;
+            color: #fca5a5;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 1rem;
+            border: 1px solid #991b1b;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: #64748b;
+        }
+
+        /* ── Responsive ───────────────────────────────────── */
+        @media (max-width: 640px) {
+            .kpi-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .kpi-card .value {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="brand">
+                <h1>🚚 TrackFlow <span>|</span> Incidencias</h1>
+                <div class="subtitle">Volumen de incidencias abiertas por severidad</div>
+            </div>
+            <div class="status-badge">
+                <span class="status-dot"></span>
+                <span id="apiStatus">Conectando con API...</span>
+            </div>
+        </header>
+
+        <div class="error-msg" id="errorMsg">
+            ⚠️ <span id="errorText">Error al conectar con la API</span>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="kpi-row" id="kpiRow">
+            <div class="kpi-card">
+                <div class="label">Totales abiertas</div>
+                <div class="value" id="kpiTotal">—</div>
+            </div>
+            <div class="kpi-card">
+                <div class="label">🔴 Críticas</div>
+                <div class="value critica" id="kpiCritica">—</div>
+            </div>
+            <div class="kpi-card">
+                <div class="label">🟠 Altas</div>
+                <div class="value alta" id="kpiAlta">—</div>
+            </div>
+            <div class="kpi-card">
+                <div class="label">🟢 Bajas</div>
+                <div class="value baja" id="kpiBaja">—</div>
+            </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="chart-card">
+            <h2>📊 Incidencias abiertas por severidad</h2>
+            <div class="chart-desc">Un vistazo al volumen de trabajo activo según la prioridad</div>
+            <div class="chart-wrapper">
+                <canvas id="severityChart"></canvas>
+            </div>
+        </div>
+
+        <footer>
+            TrackFlow API · <a id="apiLink" href="/docs" target="_blank">Documentación</a>
+        </footer>
+    </div>
+
+    <script>
+        // ── Constants ─────────────────────────────────────────────────────
+        const API_BASE = '/api/v1/incidents';
+
+        const PRIORITY_COLORS = {
+            critica: { bg: 'rgba(239, 68, 68, 0.85)', border: '#ef4444' },
+            alta: { bg: 'rgba(249, 115, 22, 0.85)', border: '#f97316' },
+            normal: { bg: 'rgba(234, 179, 8, 0.85)', border: '#eab308' },
+            baja: { bg: 'rgba(34, 197, 94, 0.85)', border: '#22c55e' },
+        };
+
+        const PRIORITY_LABELS = {
+            critica: '🔴 Crítica',
+            alta: '🟠 Alta',
+            normal: '🟡 Normal',
+            baja: '🟢 Baja',
+        };
+
+        const PRIORITY_ORDER = ['critica', 'alta', 'normal', 'baja'];
+
+        let chartInstance = null;
+
+        // ── DOM refs ──────────────────────────────────────────────────────
+        const $ = (id) => document.getElementById(id);
+        const apiStatus = $('apiStatus');
+        const errorMsg = $('errorMsg');
+        const errorText = $('errorText');
+
+        // ── Detect API base URL ───────────────────────────────────────────
+        function getApiBase() {
+            // If opened directly from file system, try localhost
+            if (window.location.protocol === 'file:') {
+                return 'http://localhost:8000';
+            }
+            // Otherwise same origin
+            return window.location.origin;
+        }
+
+        // ── Fetch data ────────────────────────────────────────────────────
+        async function fetchData() {
+            const base = getApiBase();
+            const url = `${base}${API_BASE}/open-by-severity`;
+
+            apiStatus.textContent = 'Consultando API...';
+            errorMsg.style.display = 'none';
+
+            try {
+                const res = await fetch(url);
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
+                const data = await res.json();
+
+                apiStatus.textContent = '✅ Datos actualizados';
+                apiStatus.style.color = '#22c55e';
+                return data;
+            } catch (err) {
+                console.error('Error fetching data:', err);
+                apiStatus.textContent = '❌ Error de conexión';
+                apiStatus.style.color = '#ef4444';
+                errorText.textContent = `No se pudo conectar con la API en ${getApiBase()}. ` +
+                    'Asegúrate de que el servidor esté corriendo (uvicorn app.main:app).';
+                errorMsg.style.display = 'block';
+                return null;
+            }
+        }
+
+        // ── Update KPI cards ──────────────────────────────────────────────
+        function updateKpis(data) {
+            $('kpiTotal').textContent = data.total_open;
+            $('kpiCritica').textContent = data.by_priority.critica ?? 0;
+            $('kpiAlta').textContent = data.by_priority.alta ?? 0;
+            // Normal goes to the "Alta" row? No, let's put normal in its own slot.
+            // Actually we have 4 cards: total, críticas, altas, bajas.
+            // Normal should still be visible somewhere. Let's repurpose:
+            // card 3 = normal
+            document.querySelectorAll('.kpi-row .kpi-card')[2].querySelector('.label').textContent = '🟡 Normales';
+            document.querySelectorAll('.kpi-row .kpi-card')[2].querySelector('.value').className = 'value normal';
+            document.querySelectorAll('.kpi-row .kpi-card')[2].querySelector('.value').textContent = data.by_priority.normal ?? 0;
+            $('kpiBaja').textContent = data.by_priority.baja ?? 0;
+        }
+
+        // ── Render chart ──────────────────────────────────────────────────
+        function renderChart(data) {
+            const ctx = document.getElementById('severityChart').getContext('2d');
+
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            const labels = PRIORITY_ORDER.map(p => PRIORITY_LABELS[p]);
+            const values = PRIORITY_ORDER.map(p => data.by_priority[p] ?? 0);
+            const bgColors = PRIORITY_ORDER.map(p => PRIORITY_COLORS[p].bg);
+            const borderColors = PRIORITY_ORDER.map(p => PRIORITY_COLORS[p].border);
+
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: bgColors,
+                        borderColor: borderColors,
+                        borderWidth: 2,
+                        hoverOffset: 12,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '62%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#cbd5e1',
+                                padding: 16,
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                font: { size: 13 },
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#0f172a',
+                            titleColor: '#f1f5f9',
+                            bodyColor: '#e2e8f0',
+                            borderColor: '#334155',
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                label: function(context) {
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const value = context.parsed;
+                                    const pct = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                                    return ` ${context.label}: ${value} (${pct}%)`;
+                                }
+                            }
+                        }
+                    },
+                },
+                plugins: [{
+                    id: 'centerText',
+                    beforeDraw(chart) {
+                        const { width, height, ctx } = chart;
+                        ctx.save();
+                        const total = chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                        const cx = width / 2;
+                        const cy = height / 2;
+
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+
+                        ctx.font = '700 40px "Segoe UI", system-ui, sans-serif';
+                        ctx.fillStyle = '#f1f5f9';
+                        ctx.fillText(total.toString(), cx, cy - 8);
+
+                        ctx.font = '400 13px "Segoe UI", system-ui, sans-serif';
+                        ctx.fillStyle = '#64748b';
+                        ctx.fillText('abiertas', cx, cy + 26);
+
+                        ctx.restore();
+                    }
+                }]
+            });
+        }
+
+        // ── Main ──────────────────────────────────────────────────────────
+        async function loadDashboard() {
+            const data = await fetchData();
+            if (!data) return;
+
+            updateKpis(data);
+            renderChart(data);
+        }
+
+        // ── Auto-refresh every 30 seconds ─────────────────────────────────
+        loadDashboard();
+        setInterval(loadDashboard, 30000);
+    </script>
+</body>
+</html>

@@ -42,6 +42,11 @@ Establecer la infraestructura de trazabilidad del proyecto a través del `memory
   - `IncidentResponse.audit_log[]` con todos los cambios de estado/responsable
   - Cada evento incluye: `changed_at` (marca temporal), `changed_by` (autor), `field_name`, `old_value`, `new_value`, `change_type`
   - Filtros por `status` (estado), `priority` (severidad), `assigned_area` verificados
+- [x] **Endpoint `GET /open-by-severity`** — incidencias abiertas por prioridad ✅
+- [x] **Dashboard visual** en `uis/dashboard-open-by-severity.html` ✅
+  - Chart.js doughnut + KPIs + auto-refresh 30s
+  - Sirve desde `/ui/dashboard-open-by-severity.html`
+  - CORS configurado en FastAPI
 
 ---
 

@@ -7,6 +7,8 @@ FastAPI application that serves the Incident Manager and future services.
 """
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.db.database import Base, engine
 from app.routers.incidents import router as incidents_router
@@ -25,6 +27,20 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+# ── CORS — allow dashboard from any origin ──────────────────────────────────
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ── Static files — serve UIs directly ───────────────────────────────────────
+
+app.mount("/ui", StaticFiles(directory="../../uis", html=True), name="ui")
 
 # ── Routers ─────────────────────────────────────────────────────────────────
 

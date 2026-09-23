@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
-from app.models.incident import Incident
+from app.models.incident import Incident, PRIORITIES
 from app.schemas.incident import IncidentCreate, IncidentUpdate
 from app.services.audit_service import AuditService
 
@@ -262,6 +262,46 @@ class IncidentService:
             "by_status": {row[0]: row[1] for row in by_status_rows},
             "by_category": {row[0]: row[1] for row in by_category_rows},
             "by_priority": {row[0]: row[1] for row in by_priority_rows},
+        }
+
+    # ── Open by severity ────────────────────────────────────────────────
+
+    def get_open_by_severity(self) -> dict:
+        """
+        Return the count of open incidents grouped by severity (priority).
+
+        'Open' means any status except closed, cancelled.
+        Useful for dashboard widgets showing volume of active work.
+        """
+        from sqlalchemy import func
+
+        OPEN_STATUSES = [
+            "reported",
+            "triaging",
+            "assigned",
+            "in_progress",
+            "resolved",
+            "verified",
+            "reopened",
+        ]
+
+        rows = (
+            self.db.query(Incident.priority, func.count(Incident.id))
+            .filter(Incident.status.in_(OPEN_STATUSES))
+            .group_by(Incident.priority)
+            .all()
+        )
+
+        # Ensure all priorities are present (even if 0)
+        result = {p: 0 for p in PRIORITIES}
+        for priority, count in rows:
+            result[priority] = count
+
+        total_open = sum(result.values())
+
+        return {
+            "total_open": total_open,
+            "by_priority": result,
         }
 
     # ── Assign to area (RF-03) ───────────────────────────────────────────
