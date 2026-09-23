@@ -126,14 +126,14 @@ El proyecto incluye un contenedor de desarrollo preconfigurado en `.devcontainer
 | Carpeta | Propósito | Estado actual |
 |---|---|---|
 | `agents/` | Agentes de IA + tools + rules | 📁 Template + READMEs |
-| `services/` | Backend FastAPI centralizado | 📁 Solo READMEs |
+| `services/` | Backend FastAPI centralizado | 📁 Solo READMEs — pendiente Fase 1 Incidencias |
 | `uis/` | Interfaces de usuario | 📁 Solo READMEs |
 | `data/` | raw/ → pipelines/ → process/ → eval/ | 📁 Solo READMEs |
 | `skills/` | Capacidades reutilizables | 📁 Template + script ejemplo |
 | `workflows/` | Flujos n8n | 📁 Solo READMEs |
 | `mcps/` | Servidores MCP | 📁 Solo READMEs |
 | `packages/shared/` | Tipos TypeScript compartidos | ⚡ `index.ts` con tipos base |
-| `memory-bank/` | Trazabilidad del proyecto ⭐ | ✅ Activo (5 docs) |
+| `memory-bank/` | Trazabilidad del proyecto ⭐ | ✅ Activo (6 docs, incluido plan incidencias) |
 | `infra/`, `scripts/`, `internal/` | Operaciones | 📁 Solo READMEs |
 | `docs/` | Documentación | 📁 Solo READMEs |
 
@@ -147,7 +147,8 @@ El proyecto incluye un contenedor de desarrollo preconfigurado en `.devcontainer
 - ✅ Rama `feature/incident-manager` creada a partir de `main`
 - ✅ Estructura del monorepo creada (plantilla 4Geeks)
 - ✅ `CONTEXT.md` — Fuente única de verdad de TrackFlow
-- ✅ `memory-bank/` con trazabilidad completa (5 documentos)
+- ✅ `memory-bank/` con trazabilidad completa (6 documentos: project-brief, active-context, progress, decisions, system-patterns, audit)
+- ✅ **`incident-manager-plan.md`** — Plan completo del gestor de incidencias (modelo datos, estados, auditoría, API, fases) 🆕
 - ✅ `.devcontainer/` con entorno containerizado (imagen universal, `uv`, extensiones)
 - ✅ Tipos base en `packages/shared/types/index.ts`
 - ✅ Template de agente (`agents/_template/agent.py`)
@@ -157,13 +158,13 @@ El proyecto incluye un contenedor de desarrollo preconfigurado en `.devcontainer
 ### ¿Qué falta? (Roadmap)
 | Prioridad | Tarea | Impacto | Notas |
 |---|---|---|---|
-| 🔴 P0 | Crear `pyproject.toml` para que `uv sync` funcione | Reproducibilidad | El devcontainer ya ejecuta `uv sync` pero falla |
-| 🔴 P0 | Decidir futuro de rama `feature/incident-manager` | Gobernanza | ¿Renombrar o mantener? |
-| 🔴 P0 | Configurar `.gitignore` | Seguridad | Archivo vacío actualmente |
-| 🔴 P0 | Poblar `skills/_template/SKILL.md` | Consistencia | Template vacío (0 bytes) |
-| 🟡 P1 | Inicializar `services/api/` con FastAPI | Primer endpoint |
-| 🟡 P1 | Crear carpeta `agents/rules/` + system prompts (x7 deptos) | Base agentes | Documentado pero carpeta no existe |
-| 🟡 P1 | Configurar `docker-compose.yml` con servicios base | Entorno local |
+| 🔴 P0 | Crear `pyproject.toml` para que `uv sync` funcione | Reproducibilidad | El devcontainer ya ejecuta `uv sync` pero falla (D02) |
+| 🔴 P0 | Decidir futuro de rama `feature/incident-manager` | Gobernanza | D01: nombre vs alcance del proyecto |
+| 🔴 P0 | Configurar `.gitignore` | Seguridad | Archivo no existe actualmente |
+| 🔴 P0 | Poblar `skills/_template/SKILL.md` | Consistencia | Template vacío (0 bytes, D05) |
+| 🟡 P1 | **Fase 1 Gestor Incidencias:** FastAPI + SQLAlchemy + PostgreSQL + audit trail 🆕 | Backend | Primer servicio real, priorizado tras P0 |
+| 🟡 P1 | Crear carpeta `agents/rules/` + system prompts (x7 deptos) | Base agentes | D06: documentado pero carpeta no existe |
+| 🟡 P1 | Configurar `docker-compose.yml` con PostgreSQL + API | Entorno local | Necesario para la Fase 1 |
 | 🟢 P2 | Pipeline de ingesta de pedidos | Datos |
 | 🟢 P2 | API de inventario unificado | Primer endpoint real |
 | 🟢 P2 | Base de conocimiento para RAG (CX) | Agente CX |

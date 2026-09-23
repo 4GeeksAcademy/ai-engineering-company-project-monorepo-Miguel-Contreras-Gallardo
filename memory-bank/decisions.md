@@ -54,6 +54,19 @@
 
 ---
 
+## ADR-005: Gestor de Incidencias — arquitectura y trazabilidad
+
+| Campo | Valor |
+|---|---|
+| **Fecha** | 2026-09-23 |
+| **Estado** | ✅ Aceptada |
+| **Contexto** | Los stakeholders de operaciones necesitan un sistema para registrar incidencias multicanal, clasificarlas, asignarlas a un área responsable y hacer seguimiento del estado. Requisito crítico: toda transición de estado o cambio de responsable debe quedar registrado con quién, cuándo y por qué. |
+| **Decisión** | Construir un servicio de incidencias dentro de `services/api/` con FastAPI + SQLAlchemy + PostgreSQL. El modelo incluye una tabla `incident_audit_log` que registra cada cambio (campo, valor anterior, valor nuevo, responsable, timestamp, motivo). Las transiciones de estado se rigen por una máquina de estados con reglas explícitas. |
+| **Consecuencias** | + Trazabilidad total de cada incidencia. + Se puede reconstruir el histórico completo. + Base sólida para futuros agentes de IA que automaticen clasificación/resolución. - Mayor complejidad en las escrituras (doble escritura: entidad + log). - PostgreSQL requerido como dependencia. |
+| **Alternativas** | Usar una tabla de eventos genérica (event sourcing) — más potente pero mayor complejidad inicial para el alcance actual. |
+
+---
+
 ## Plantilla para nuevas ADR
 
 ```markdown

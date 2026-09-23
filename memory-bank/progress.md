@@ -9,28 +9,25 @@
 ## 📅 Sesión 1 — 2026-09-23
 
 ### Objetivo
-Configurar infraestructura de trazabilidad del proyecto.
+Configurar infraestructura de trazabilidad del proyecto + diseño del gestor de incidencias.
 
 ### Logros
 - [x] Análisis completo del monorepo (estructura, contexto, errores)
-- [x] Creación de `memory-bank/` con 5 documentos de trazabilidad
-- [x] Refactorización: consolidación en 4 documentos (eliminando redundancias)
+- [x] Creación de `memory-bank/` con documentación de trazabilidad
+- [x] Refactorización: consolidación eliminando redundancias
 - [x] `project-brief.md` — Contexto completo de producto, stack y estado
 - [x] `CONTEXT.md` — Fuente única de verdad de TrackFlow creada en la raíz ✅
-- [x] `active-context.md` — Contexto activo de sesión actual
-- [x] `progress.md` — Registro cronológico de progreso
-- [x] `decisions.md` — Architecture Decision Records (ADR)
-- [x] `system-patterns.md` — Patrones y convenciones del proyecto
-- [x] `audit.md` — Auditoría completa de discrepancias real vs documentación ✅ **(NUEVO)**
+- [x] `active-context.md`, `progress.md`, `decisions.md`, `system-patterns.md`
+- [x] `audit.md` — Auditoría completa de discrepancias real vs documentación ✅
+- [x] **`incident-manager-plan.md`** — Plan completo del gestor de incidencias con modelo de datos, flujos, auditoría y roadmap ✅ **(NUEVO)**
 - [x] Sincronización con `/memories/repo/` de Copilot
 
 ### Pendientes (detallados en project-brief.md)
 | Prioridad | Tarea | Categoría |
 |---|---|---|
-| 🔴 P0 | Crear `CONTEXT.md` como fuente única de verdad | Documentación |
 | 🔴 P0 | Configurar `.gitignore` | Operaciones |
-| 🔴 P0 | Crear `requirements.txt` o `pyproject.toml` raíz | Operaciones |
-| 🟡 P1 | Inicializar `services/api/` con FastAPI | Backend |
+| 🔴 P0 | Crear `pyproject.toml` raíz (uv sync) | Operaciones |
+| 🟡 P1 | **Fase 1 Gestor Incidencias:** FastAPI + BD + auditoría ⭐ | Backend |
 | 🟡 P1 | Crear system prompts en `agents/rules/` (x7 deptos) | Agentes |
 | 🟡 P1 | Configurar `docker-compose.yml` con servicios base | Infra |
 | 🟢 P2 | Pipeline de ingesta de pedidos | Datos |
@@ -44,8 +41,9 @@ Configurar infraestructura de trazabilidad del proyecto.
 
 | Indicador | Valor | Fecha |
 |---|---|---|
-| Documentos en memory-bank | 4 activos | 2026-09-23 |
+| Documentos en memory-bank | 6 activos | 2026-09-23 |
 | Departamentos con rules | 0 / 7 | 2026-09-23 |
 | Servicios implementados | 0 | 2026-09-23 |
 | Agentes implementados | 0 | 2026-09-23 |
+| Planes de implementación | 1 (incident-manager) | 2026-09-23 |
 | Archivos de código ejecutable | 2 (template + script) | 2026-09-23 |
