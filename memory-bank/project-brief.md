@@ -129,7 +129,7 @@ El proyecto incluye un contenedor de desarrollo preconfigurado en `.devcontainer
 | Carpeta | Propósito | Estado actual |
 |---|---|---|
 | `agents/` | Agentes de IA + tools + rules | 📁 Template + READMEs |
-| `services/` | Backend FastAPI centralizado | 📁 Solo READMEs — pendiente Fase 1 Incidencias |
+| `services/` | Backend FastAPI centralizado | ✅ **Fase 1 activa** — Gestor de Incidencias implementado |
 | `uis/` | Interfaces de usuario | 📁 Solo READMEs |
 | `data/` | raw/ → pipelines/ → process/ → eval/ | 📁 Solo READMEs |
 | `skills/` | Capacidades reutilizables | 📁 Template + script ejemplo |
@@ -153,6 +153,15 @@ El proyecto incluye un contenedor de desarrollo preconfigurado en `.devcontainer
 - ✅ `memory-bank/` con trazabilidad completa (6 documentos: project-brief, active-context, progress, decisions, system-patterns, audit)
 - ✅ **`incident-manager-plan.md`** — Plan completo del gestor de incidencias (modelo datos, estados, auditoría, API, fases) 🆕
 - ✅ `.devcontainer/` con entorno containerizado (imagen universal, `uv`, extensiones)
+- ✅ `.gitignore` configurado (Python, IDE, BD, .env)
+- ✅ `pyproject.toml` raíz creado (preparado para `uv sync`)
+- ✅ **🚀 FASE 1 DEL GESTOR DE INCIDENCIAS IMPLEMENTADA** 🆕
+  - `services/api/` con FastAPI + SQLAlchemy + SQLite (dev)
+  - 4 modelos: incidents, incident_audit_log, incident_comments, incident_attachments
+  - 6 endpoints REST en `/api/v1/incidents`
+  - Máquina de estados (9 estados) con transiciones validadas
+  - Auditoría obligatoria (quién, qué, cuándo, por qué cada cambio)
+  - Test funcional completo verificado ✅
 - ✅ Tipos base en `packages/shared/types/index.ts`
 - ✅ Template de agente (`agents/_template/agent.py`)
 - ✅ Template de skill (`skills/_template/` — aunque SKILL.md vacío)
@@ -161,13 +170,18 @@ El proyecto incluye un contenedor de desarrollo preconfigurado en `.devcontainer
 ### ¿Qué falta? (Roadmap)
 | Prioridad | Tarea | Impacto | Notas |
 |---|---|---|---|
-| 🔴 P0 | Crear `pyproject.toml` para que `uv sync` funcione | Reproducibilidad | El devcontainer ya ejecuta `uv sync` pero falla (D02) |
+| 🔴 P0 | ~~Crear `pyproject.toml` para que `uv sync` funcione~~ ✅ **HECHO** | Reproducibilidad | Resuelta |
+| 🔴 P0 | ~~Configurar `.gitignore`~~ ✅ **HECHO** | Seguridad | Resuelta |
 | 🔴 P0 | Decidir futuro de rama `feature/incident-manager` | Gobernanza | D01: nombre vs alcance del proyecto |
-| 🔴 P0 | Configurar `.gitignore` | Seguridad | Archivo no existe actualmente |
 | 🔴 P0 | Poblar `skills/_template/SKILL.md` | Consistencia | Template vacío (0 bytes, D05) |
-| 🟡 P1 | **Fase 1 Gestor Incidencias:** FastAPI + SQLAlchemy + PostgreSQL + audit trail 🆕 | Backend | Primer servicio real, priorizado tras P0 |
+| 🟡 P1 | ~~**Fase 1 Gestor Incidencias**~~ ✅ **HECHO** | Backend | Primer servicio real implementado |
 | 🟡 P1 | Crear carpeta `agents/rules/` + system prompts (x7 deptos) | Base agentes | D06: documentado pero carpeta no existe |
-| 🟡 P1 | Configurar `docker-compose.yml` con PostgreSQL + API | Entorno local | Necesario para la Fase 1 |
+| 🟡 P1 | Configurar `docker-compose.yml` con PostgreSQL + API | Entorno local | Necesario para producción |
+| 🟡 P1 | Migrar a PostgreSQL + Alembic migrations | Persistencia | Actualmente SQLite (dev) |
+| 🟢 P2 | Pipeline de ingesta de pedidos | Datos |
+| 🟢 P2 | API de inventario unificado | Primer endpoint real |
+| 🟢 P2 | Base de conocimiento para RAG (CX) | Agente CX |
+| 🔵 P3 | Agente orquestador multi-departamento | Visión final |
 | 🟢 P2 | Pipeline de ingesta de pedidos | Datos |
 | 🟢 P2 | API de inventario unificado | Primer endpoint real |
 | 🟢 P2 | Base de conocimiento para RAG (CX) | Agente CX |
