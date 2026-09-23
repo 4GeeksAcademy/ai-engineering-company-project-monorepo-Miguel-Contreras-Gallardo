@@ -39,6 +39,8 @@ Cliente (Marca) → Contrato → Pedido → Envío → TrackingEvent
 
 Transportista → Tarifa → Ruta
 Cliente (Consumidor Final) → Consulta → Ticket
+                                            → Incidencia
+Operario / Sistema / Cliente B2B ──────────→ Incidencia
 ```
 
 | Entidad | Descripción | Atributos clave |
@@ -53,6 +55,7 @@ Cliente (Consumidor Final) → Consulta → Ticket
 | `Devolución` | Producto devuelto por el consumidor | id, envio_id, motivo, estado_aprobacion, estado_inspeccion |
 | `Transportista` | Empresa de mensajería | id, nombre, pais, tarifas, metricas_rendimiento |
 | `Ticket` | Consulta de CX | id, origen (email/whatsapp/tel), cliente_tipo, estado, resolucion_automatica |
+| `Incidencia` | 🆕 Desviación operativa que requiere seguimiento, resolución y auditoría | id, título, canal, categoría, prioridad, estado, área_asignada, audit_log[] |
 
 ### 1.5 Flujos de Proceso de Negocio Clave
 

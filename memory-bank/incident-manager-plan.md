@@ -6,6 +6,59 @@
 
 ---
 
+## 0. CONTEXTO DE PRODUCTO
+
+### 0.1 La empresa
+
+**TrackFlow** es una empresa de logística de última milla y gestión de almacenes fundada en 2009 en Los Ángeles. Opera en **EE.UU. y España** con almacenes en **Los Ángeles** y **Zaragoza**, ~130 empleados y ~9M€ de facturación anual.
+
+Su negocio consiste en que marcas de e-commerce le confían su inventario, y TrackFlow se encarga de todo el proceso logístico: almacenar productos, preparar pedidos, empaquetarlos, enviarlos a través de una red de transportistas y gestionar las devoluciones. Las marcas se centran en vender; TrackFlow en que los productos lleguen al cliente final.
+
+### 0.2 ¿Quién usa el backoffice?
+
+El sistema de incidencias será utilizado predominantemente por **perfiles de operaciones y coordinación**, no por perfiles técnicos. Los usuarios del backoffice son:
+
+| Perfil | Departamento | ¿Qué hará en el gestor de incidencias? |
+|---|---|---|
+| 👷 Operarios de almacén (~70) | Almacén | Reportar discrepancias de stock, roturas, problemas con pedidos |
+| 👩‍💼 Jefes de almacén (2) | Almacén | Clasificar y asignar incidencias de almacén, verificar resoluciones |
+| 👨‍💼 Coordinadores logísticos (6) | Última Milla | Reportar incidencias con transportistas, tracking, entregas fallidas |
+| 👩‍🔧 Inspectores devoluciones (5) | Logística Inversa | Reportar estado de productos devueltos, discrepancias en inspección |
+| 👩‍💻 Agentes CX (15) | Experiencia Cliente | Registrar quejas de clientes, escalar incidencias complejas |
+| 👨‍💼 Account managers (4) | Comercial | Registrar solicitudes o quejas de marcas B2B |
+| 👨‍💻 Equipo Tech (7) | Tecnología | Registrar incidencias técnicas (caídas de API, errores de sistema) |
+| 👨‍💼 Coordinador de incidencias | Multi-área | Supervisar el tablero global, reasignar, garantizar SLAs |
+| 👔 Dirección (CEO/CTO) | Ejecutiva | Consultar reportes, ver métricas de resolución |
+
+El gestor también recibirá incidencias **automáticas** desde sistemas (alertas de stock bajo, errores de API, umbrales de rendimiento) e incidencias desde el **portal de clientes B2B** (marcas reportando problemas directamente).
+
+### 0.3 ¿Qué es una incidencia en la operación de TrackFlow?
+
+En el contexto de logística de última milla, una **incidencia** es cualquier desviación del flujo normal de operaciones que requiere atención, registro y seguimiento hasta su resolución. No es un simple "ticket de soporte" — cada incidencia representa un **evento que impacta la operación** y cuya resolución puede implicar a múltiples departamentos.
+
+**Ejemplos reales de incidencias en el día a día de TrackFlow:**
+
+| Tipo | Ejemplo | Impacto |
+|---|---|---|
+| 📦 **Discrepancia de inventario** | "El SKU-9876 muestra 50 uds en sistema pero hay 42 en la estantería" | Error en picking, posible rotura de stock |
+| 🚚 **Incidencia de transporte** | "El envío #44321 lleva 3 días en tránsito sin actualización" | Cliente insatisfecho, posible reclamación |
+| 🔄 **Devolución anómala** | "Lote de 20 unidades devueltas con el mismo defecto de fabricación" | Posible problema de calidad del proveedor |
+| 📞 **Queja de cliente B2B** | "La marca FreshWear reporta que sus pedidos llegan con retraso sistemático" | Riesgo de pérdida de contrato |
+| ⚙️ **Fallo técnico** | "API de UPS devuelve error 503 — no se pueden generar etiquetas" | Bloqueo operativo |
+| 🏭 **Incidencia en almacén** | "Rotura de estantería en pasillo D — pasillo bloqueado" | Riesgo de seguridad, retraso en preparación |
+| 📊 **Alerta automática** | "Umbral de devoluciones superado para el cliente GlamBeauty (35% vs 20% esperado)" | Señal temprana de problema |
+
+**¿Qué NO es una incidencia?**
+- Una consulta informativa de un consumidor final sobre el estado de su pedido (es una consulta CX = ticket)
+- Una tarea rutinaria programada (ej. "reabastecer estantería cada martes")
+- Un pedido nuevo entrante (es una transacción estándar)
+
+**La incidencia se diferencia del ticket de CX** en que:
+- **Ticket CX**: consulta de consumidor final sobre tracking, devolución, etc. Puede resolverse con información.
+- **Incidencia**: problema operativo que requiere acción correctiva, cambio de estado, asignación y seguimiento hasta cierre. Tiene ciclo de vida con auditoría obligatoria.
+
+---
+
 ## 1. REQUISITOS FUNCIONALES
 
 ### RF-01: Registro multicanal

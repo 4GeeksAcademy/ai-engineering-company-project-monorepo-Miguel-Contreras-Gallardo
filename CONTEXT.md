@@ -111,6 +111,8 @@ Cliente (Marca) → Contrato → Pedido → Envío → TrackingEvent
 
 Transportista → Tarifa → Ruta
 Consumidor Final → Consulta → Ticket
+                                            → Incidencia
+Operario / Sistema / Cliente B2B ──────────→ Incidencia
 ```
 
 | Entidad | Descripción | Campos clave |
@@ -127,6 +129,7 @@ Consumidor Final → Consulta → Ticket
 | **Inspección** | Evaluación del producto devuelto | devolucion_id, operario_id, fotos[], clasificacion_ia, dictamen (reacondicionar/desechar) |
 | **Transportista** | Empresa de mensajería | id, nombre, pais_operacion, tarifas[], metricas_rendimiento |
 | **Ticket** | Consulta de CX | id, origen (email/whatsapp/tel), cliente_tipo (B2B/B2C), estado, resuelto_por_ia, agente_id |
+| **Incidencia** | 🆕 Desviación operativa que requiere seguimiento y resolución con auditoría | id, titulo, descripcion, canal, categoria, prioridad, estado, area_asignada, responsable, fechas, audit_log[] |
 
 ---
 
