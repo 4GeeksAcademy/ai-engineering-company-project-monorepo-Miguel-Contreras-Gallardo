@@ -1,0 +1,125 @@
+"""SQLAlchemy ORM models for the inventory manager.
+
+Every table, column and constraint is defined here.  No stock column exists
+anywhere — stock is always derived from the movement ledger.
+"""
+
+from datetime import datetime, timezone
+
+from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Integer,
+    String,
+    UniqueConstraint,
+    text,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db.base import Base
+
+
+class Article(Base):
+    __tablename__ = "articles"
+
+    sku: Mapped[str] = mapped_column(String, primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str | None] = mapped_column(String, default=None)
+    reorder_point: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0,
+        comment="Minimum stock before a reorder signal is raised",
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    lots: Mapped[list["Lot"]] = relationship(
+        back_populates="article", cascade="all, delete-orphan"
+    )
+
+
+class Warehouse(Base):
+    __tablename__ = "warehouses"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    location: Mapped[str | None] = mapped_column(String, default=None)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+
+class Lot(Base):
+    __tablename__ = "lots"
+    __table_args__ = (UniqueConstraint("sku", "code", name="uq_lot_sku_code"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    sku: Mapped[str] = mapped_column(String, ForeignKey("articles.sku"), nullable=False)
+    code: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    article: Mapped["Article"] = relationship(back_populates="lots")
+    movements: Mapped[list["Movement"]] = relationship(back_populates="lot")
+
+
+class Movement(Base):
+    __tablename__ = "movements"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    sequence: Mapped[int | None] = mapped_column(
+        BigInteger, unique=True, nullable=True,
+        comment="Monotonically increasing sequence — populated after insert",
+    )
+    request_key: Mapped[str] = mapped_column(
+        String, unique=True, nullable=False, index=True,
+        comment="Idempotency key — the same key with the same data replays the original result",
+    )
+    sku: Mapped[str] = mapped_column(String, nullable=False)
+    warehouse_id: Mapped[str] = mapped_column(String, nullable=False)
+    lot_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    type: Mapped[str] = mapped_column(
+        String(20),
+        CheckConstraint("type IN ('entrada', 'salida', 'ajuste')", name="ck_movement_type"),
+        nullable=False,
+    )
+    quantity: Mapped[int] = mapped_column(
+        Integer,
+        CheckConstraint("quantity > 0", name="ck_movement_quantity_positive"),
+        nullable=False,
+    )
+    reason: Mapped[str | None] = mapped_column(String, default=None, comment="Motivo del movimiento")
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    lot: Mapped["Lot"] = relationship(back_populates="movements")
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["sku", "lot_id"],
+            ["lots.sku", "lots.id"],
+            name="fk_movement_lot",
+        ),
+        ForeignKeyConstraint(
+            ["warehouse_id"], ["warehouses.id"], name="fk_movement_warehouse"
+        ),
+    )
