@@ -26,3 +26,7 @@ Run the focused test suite with:
 .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/pytest
 ```
+
+Set `TEST_DATABASE_URL` to a dedicated PostgreSQL database to run concurrency,
+transaction visibility and append-only ledger tests. The criterion-to-test
+mapping is documented in `specs/inventory-manager/test-matrix.md`.

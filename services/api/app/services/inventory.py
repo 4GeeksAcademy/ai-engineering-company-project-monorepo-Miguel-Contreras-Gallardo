@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
-from sqlalchemy import and_, case, func, select, true
+from sqlalchemy import and_, case, func, select, text, true
 from sqlalchemy.orm import Session
 
 from app.db.models import Article, Lot, Movement, Warehouse
@@ -38,6 +38,18 @@ class IdempotentReplay(Exception):
 
 class ResourceNotFound(InventoryError):
     """SKU, warehouse or lot not found."""
+
+
+def _lock_request_key(db: Session, request_key: str) -> None:
+    if db.get_bind().dialect.name == "postgresql":
+        db.execute(
+            text(
+                "SELECT pg_advisory_xact_lock("
+                "hashtextextended(:request_key, 0)"
+                ")"
+            ),
+            {"request_key": request_key},
+        )
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -140,6 +152,8 @@ def register_movement(
     same key + different data ⇒ ConflictRequestKey.
     Stock is always calculated from the movement ledger — never stored directly.
     """
+    _lock_request_key(db, request_key)
+
     # 1 — Idempotency check
     existing = db.query(Movement).filter(Movement.request_key == request_key).first()
     if existing is not None:
@@ -258,6 +272,10 @@ def _handle_idempotent_replay(
 
 
 def _movement_to_response(m: Movement) -> MovementResponse:
+    recorded_at = m.recorded_at
+    if recorded_at.tzinfo is None:
+        recorded_at = recorded_at.replace(tzinfo=timezone.utc)
+
     return MovementResponse(
         id=m.id,
         sequence=m.sequence,
@@ -268,7 +286,7 @@ def _movement_to_response(m: Movement) -> MovementResponse:
         quantity=m.quantity,
         adjustment_direction=m.adjustment_direction,
         reason=m.reason,
-        recorded_at=m.recorded_at,
+        recorded_at=recorded_at,
     )
 
 

@@ -62,7 +62,7 @@ def create_movement(payload: MovementRegister, db: Session = Depends(get_db)):
     except InsufficientStock as e:
         db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(e),
         )
     except ConflictRequestKey as e:
