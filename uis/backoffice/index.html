@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TrackFlow · Inventario</title>
+  <title>TrackFlow · Backoffice</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
@@ -18,7 +18,9 @@
       <span>TrackFlow</span>
     </a>
     <nav aria-label="Navegación principal">
-      <a class="nav-item active" href="#inventory"><i data-lucide="boxes"></i><span>Inventario</span></a>
+      <a class="nav-item active" data-view="dashboard" href="#"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></a>
+      <a class="nav-item" data-view="inventory" href="#"><i data-lucide="boxes"></i><span>Inventario</span></a>
+      <a class="nav-item" data-view="company" href="#"><i data-lucide="building"></i><span>Empresa</span></a>
       <a class="nav-item disabled" href="#" aria-disabled="true"><i data-lucide="package-check"></i><span>Pedidos</span></a>
       <a class="nav-item disabled" href="#" aria-disabled="true"><i data-lucide="truck"></i><span>Envíos</span></a>
     </nav>
@@ -28,7 +30,77 @@
     </div>
   </aside>
 
-  <main id="inventory">
+  <!-- ===== DASHBOARD VIEW (inicio) ===== -->
+  <main id="view-dashboard" class="view active">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">TRACKFLOW · PANEL PRINCIPAL</p>
+        <h1>Bienvenido, operador</h1>
+      </div>
+      <div class="header-actions">
+        <span class="badge" id="live-date">Cargando...</span>
+      </div>
+    </header>
+
+    <!-- Resumen ejecutivo de la empresa -->
+    <section class="dashboard-cards">
+      <article class="dash-card">
+        <div class="dash-card-header">
+          <i data-lucide="users"></i>
+          <span class="dash-label">EMPLOYEES</span>
+        </div>
+        <strong class="dash-value">130+</strong>
+        <span class="dash-note">Empleados en LA y Zaragoza</span>
+      </article>
+      <article class="dash-card">
+        <div class="dash-card-header">
+          <i data-lucide="wallet"></i>
+          <span class="dash-label">FACTURACIÓN</span>
+        </div>
+        <strong class="dash-value">9M€</strong>
+        <span class="dash-note">Facturación anual estimada</span>
+      </article>
+      <article class="dash-card">
+        <div class="dash-card-header">
+          <i data-lucide="warehouse"></i>
+          <span class="dash-label">ALMACENES</span>
+        </div>
+        <strong class="dash-value">2</strong>
+        <span class="dash-note">Los Ángeles + Zaragoza</span>
+      </article>
+      <article class="dash-card">
+        <div class="dash-card-header">
+          <i data-lucide="truck"></i>
+          <span class="dash-label">TRANSPORTISTAS</span>
+        </div>
+        <strong class="dash-value">8</strong>
+        <span class="dash-note">UPS, FedEx, DHL, MRW, SEUR + locales</span>
+      </article>
+    </section>
+
+    <!-- Departamentos -->
+    <section class="workspace">
+      <h2>Departamentos</h2>
+      <p>Áreas clave de TrackFlow según la documentación interna</p>
+      <div class="dept-grid" id="dept-grid">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+    <!-- Estados operativos -->
+    <section class="workspace" style="margin-top: 24px;">
+      <div class="status-banner" id="api-status-banner">
+        <i data-lucide="cloud-off"></i>
+        <div>
+          <strong>Estado de la API</strong>
+          <span id="api-status-text">Verificando conexión...</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===== INVENTORY VIEW ===== -->
+  <main id="view-inventory" class="view">
     <header class="topbar">
       <div>
         <p class="eyebrow">OPERACIONES · INVENTARIO GLOBAL</p>
@@ -88,6 +160,41 @@
           </tbody>
         </table>
       </div>
+    </section>
+  </main>
+
+  <!-- ===== COMPANY VIEW ===== -->
+  <main id="view-company" class="view">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">EMPRESA</p>
+        <h1>TrackFlow</h1>
+      </div>
+    </header>
+
+    <section class="workspace">
+      <h2>Directivos y responsables</h2>
+      <p>Equipo directivo extraído de la documentación interna de TrackFlow</p>
+      <div class="team-grid-bo" id="team-grid">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+    <section class="workspace" style="margin-top: 24px;">
+      <h2>Datos clave de la empresa</h2>
+      <table class="info-table">
+        <tbody>
+          <tr><td><strong>Fundación</strong></td><td>2009</td></tr>
+          <tr><td><strong>Sede</strong></td><td>Los Ángeles, Estados Unidos</td></tr>
+          <tr><td><strong>Oficina tecnológica</strong></td><td>Zaragoza, España</td></tr>
+          <tr><td><strong>CEO</strong></td><td>Thomas Harry</td></tr>
+          <tr><td><strong>CTO</strong></td><td>Andrés Kim</td></tr>
+          <tr><td><strong>Empleados</strong></td><td>~130</td></tr>
+          <tr><td><strong>Facturación</strong></td><td>~9M€ anuales</td></tr>
+          <tr><td><strong>Transportistas</strong></td><td>8 (UPS, FedEx, DHL, MRW, SEUR + locales)</td></tr>
+          <tr><td><strong>Devoluciones</strong></td><td>18-25% del volumen según cliente y país</td></tr>
+        </tbody>
+      </table>
     </section>
   </main>
 
