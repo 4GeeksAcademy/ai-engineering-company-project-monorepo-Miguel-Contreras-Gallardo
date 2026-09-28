@@ -46,6 +46,11 @@ def create_movement(payload: MovementRegister, db: Session = Depends(get_db)):
             lot_code=payload.lot_code,
             type_=payload.type.value,
             quantity=payload.quantity,
+            adjustment_direction=(
+                payload.adjustment_direction.value
+                if payload.adjustment_direction is not None
+                else None
+            ),
             reason=payload.reason,
             request_key=payload.request_key,
         )
@@ -89,7 +94,7 @@ def get_movement_by_request_key(request_key: str, db: Session = Depends(get_db))
     from app.services.inventory import _movement_to_response, _stock_query
 
     resulting_stock = _stock_query(db, movement.sku, movement.warehouse_id, movement.lot_id)
-    stock_val = resulting_stock[0][1] if resulting_stock else 0
+    stock_val = resulting_stock[0][2] if resulting_stock else 0
     return MovementResult(
         movement=_movement_to_response(movement),
         resulting_stock=stock_val,

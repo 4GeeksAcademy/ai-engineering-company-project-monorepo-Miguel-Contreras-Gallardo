@@ -3,8 +3,8 @@
 from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
-from sqlalchemy import and_, case, func, select, text, update
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import and_, case, func, select, true
+from sqlalchemy.orm import Session
 
 from app.db.models import Article, Lot, Movement, Warehouse
 from app.schemas.inventory import (
@@ -48,57 +48,51 @@ def _stock_query(
     sku: str,
     warehouse_id: Optional[str] = None,
     lot_id: Optional[int] = None,
-) -> List[Tuple[int, int, str]]:
-    """Return (lot_id, stock, lot_code) rows for the given filters."""
+) -> List[Tuple[int, str, int, str]]:
+    """Return (lot_id, warehouse_id, stock, lot_code) rows."""
+    movement_delta = case(
+        (Movement.type == "entrada", Movement.quantity),
+        (Movement.type == "salida", -Movement.quantity),
+        (
+            and_(
+                Movement.type == "ajuste",
+                Movement.adjustment_direction == "aumentar",
+            ),
+            Movement.quantity,
+        ),
+        else_=-Movement.quantity,
+    )
     stmt = (
         select(
             Lot.id.label("lot_id"),
-            func.coalesce(
-                func.sum(
-                    case(
-                        (Movement.type == "entrada", Movement.quantity),
-                        (Movement.type.in_(["salida", "ajuste"]), -Movement.quantity),
-                        else_=0,
-                    )
-                ),
-                0,
-            ).label("stock"),
+            Warehouse.id.label("warehouse_id"),
+            func.coalesce(func.sum(movement_delta), 0).label("stock"),
             Lot.code.label("lot_code"),
         )
         .select_from(Lot)
+        .join(Warehouse, true())
         .outerjoin(
             Movement,
             and_(
                 Movement.lot_id == Lot.id,
                 Movement.sku == Lot.sku,
-                Movement.warehouse_id == warehouse_id if warehouse_id else text("1=1"),
+                Movement.warehouse_id == Warehouse.id,
             ),
         )
         .where(Lot.sku == sku)
-        .group_by(Lot.id, Lot.code)
+        .group_by(Lot.id, Warehouse.id, Lot.code)
     )
 
+    if warehouse_id is not None:
+        stmt = stmt.where(Warehouse.id == warehouse_id)
     if lot_id is not None:
         stmt = stmt.where(Lot.id == lot_id)
 
-    # When warehouse_id is given, filter movements by warehouse
-    # (but still show the lot even if no movements in that warehouse)
-    if warehouse_id:
-        stmt = stmt.where(
-            and_(
-                Lot.sku == sku,
-                # Only sum movements from this warehouse
-                Movement.warehouse_id == warehouse_id,
-            )
-        )
-
     result = db.execute(stmt).all()
-    # If we filtered by lot and got nothing, the lot doesn't exist
     if lot_id is not None and not result:
         lot = db.get(Lot, lot_id)
         if lot is None or lot.sku != sku:
             raise ResourceNotFound(f"Lot {lot_id} not found or not associated with SKU {sku}")
-        result = [(lot.id, 0, lot.code)]  # exists but no movements
 
     return result
 
@@ -106,7 +100,7 @@ def _stock_query(
 def _validate_existence(db: Session, sku: str, warehouse_id: str, lot_code: str) -> Tuple[Article, Warehouse, Lot]:
     """Verify SKU, warehouse and lot (by code+sku) exist. Raise if not."""
     article = db.get(Article, sku)
-    if article is None:
+    if article is None or not article.active:
         raise ResourceNotFound(f"Article SKU '{sku}' not found")
 
     warehouse = db.get(Warehouse, warehouse_id)
@@ -116,6 +110,7 @@ def _validate_existence(db: Session, sku: str, warehouse_id: str, lot_code: str)
     lot = (
         db.query(Lot)
         .filter(Lot.sku == sku, Lot.code == lot_code)
+        .with_for_update()
         .first()
     )
     if lot is None:
@@ -135,7 +130,8 @@ def register_movement(
     lot_code: str,
     type_: str,
     quantity: int,
-    reason: Optional[str] = None,
+    adjustment_direction: Optional[str],
+    reason: str,
     request_key: str,
 ) -> MovementResult:
     """Register a movement and return it together with the resulting stock.
@@ -147,14 +143,27 @@ def register_movement(
     # 1 — Idempotency check
     existing = db.query(Movement).filter(Movement.request_key == request_key).first()
     if existing is not None:
-        return _handle_idempotent_replay(db, existing, sku, warehouse_id, lot_code, type_, quantity)
+        return _handle_idempotent_replay(
+            db,
+            existing,
+            sku,
+            warehouse_id,
+            lot_code,
+            type_,
+            quantity,
+            adjustment_direction,
+            reason,
+        )
 
     # 2 — Validate existence
     article, warehouse, lot = _validate_existence(db, sku, warehouse_id, lot_code)
 
     # 3 — Inside transaction: check stock for salida
-    if type_ == "salida":
-        current_stock = _stock_query(db, sku, warehouse_id, lot.id)[0][1]
+    reduces_stock = type_ == "salida" or (
+        type_ == "ajuste" and adjustment_direction == "reducir"
+    )
+    if reduces_stock:
+        current_stock = _stock_query(db, sku, warehouse_id, lot.id)[0][2]
         if current_stock < quantity:
             raise InsufficientStock(
                 f"Insufficient stock for SKU '{sku}' lot '{lot_code}' "
@@ -170,19 +179,16 @@ def register_movement(
         lot_id=lot.id,
         type=type_,
         quantity=quantity,
+        adjustment_direction=adjustment_direction,
         reason=reason,
         request_key=request_key,
         recorded_at=now,
     )
     db.add(movement)
-    db.flush()  # get id
-
-    # Assign the monotonic sequence from the auto-increment id
-    movement.sequence = movement.id
     db.flush()
 
     # 5 — Compute resulting stock
-    resulting_stock = _stock_query(db, sku, warehouse_id, lot.id)[0][1]
+    resulting_stock = _stock_query(db, sku, warehouse_id, lot.id)[0][2]
 
     return MovementResult(
         movement=_movement_to_response(movement),
@@ -198,6 +204,8 @@ def _handle_idempotent_replay(
     lot_code: str,
     type_: str,
     quantity: int,
+    adjustment_direction: Optional[str],
+    reason: str,
 ) -> MovementResult:
     """Check replay vs conflict for an existing request_key."""
     # Compare all relevant fields
@@ -209,6 +217,8 @@ def _handle_idempotent_replay(
         and lot_id_match
         and existing.type == type_
         and existing.quantity == quantity
+        and existing.adjustment_direction == adjustment_direction
+        and existing.reason == reason
     ):
         # Replay — reconstruct the original stock result
         # Sum only movements of that lot+warehouse up to the original sequence
@@ -217,8 +227,15 @@ def _handle_idempotent_replay(
                 func.sum(
                     case(
                         (Movement.type == "entrada", Movement.quantity),
-                        (Movement.type.in_(["salida", "ajuste"]), -Movement.quantity),
-                        else_=0,
+                        (Movement.type == "salida", -Movement.quantity),
+                        (
+                            and_(
+                                Movement.type == "ajuste",
+                                Movement.adjustment_direction == "aumentar",
+                            ),
+                            Movement.quantity,
+                        ),
+                        else_=-Movement.quantity,
                     )
                 ),
                 0,
@@ -249,6 +266,7 @@ def _movement_to_response(m: Movement) -> MovementResponse:
         lot_id=m.lot_id,
         type=m.type,
         quantity=m.quantity,
+        adjustment_direction=m.adjustment_direction,
         reason=m.reason,
         recorded_at=m.recorded_at,
     )
@@ -272,6 +290,9 @@ def query_stock(
     if article is None:
         raise ResourceNotFound(f"Article SKU '{sku}' not found")
 
+    if warehouse_id and db.get(Warehouse, warehouse_id) is None:
+        raise ResourceNotFound(f"Warehouse '{warehouse_id}' not found")
+
     if lot_code and not warehouse_id:
         raise ValueError("lot_code requires warehouse_id")
 
@@ -288,12 +309,10 @@ def query_stock(
     rows = _stock_query(db, sku, warehouse_id, lot_id)
 
     lines = []
-    for lot_id_val, stock, lot_code_val in rows:
-        # For warehouse-filtered queries, only show that warehouse
-        line_warehouse = warehouse_id
+    for lot_id_val, line_warehouse, stock, lot_code_val in rows:
         lines.append(
             StockLine(
-                warehouse_id=line_warehouse if line_warehouse else "all",
+                warehouse_id=line_warehouse,
                 lot_id=lot_id_val,
                 lot_code=lot_code_val,
                 stock=stock,
@@ -311,8 +330,8 @@ def get_reorder_items(db: Session) -> ReorderResponse:
 
     for article in articles:
         rows = _stock_query(db, article.sku, warehouse_id=None, lot_id=None)
-        current_stock = sum(row[1] for row in rows)
-        if current_stock <= article.reorder_point:
+        current_stock = sum(row[2] for row in rows)
+        if article.active and current_stock <= article.reorder_point:
             items.append(
                 ReorderItem(
                     sku=article.sku,

@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TrackFlow · Inventario</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="#" aria-label="TrackFlow">
+      <span class="brand-mark">TF</span>
+      <span>TrackFlow</span>
+    </a>
+    <nav aria-label="Navegación principal">
+      <a class="nav-item active" href="#inventory"><i data-lucide="boxes"></i><span>Inventario</span></a>
+      <a class="nav-item disabled" href="#" aria-disabled="true"><i data-lucide="package-check"></i><span>Pedidos</span></a>
+      <a class="nav-item disabled" href="#" aria-disabled="true"><i data-lucide="truck"></i><span>Envíos</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <span class="connection-dot" id="connection-dot"></span>
+      <span id="connection-label">Conectando</span>
+    </div>
+  </aside>
+
+  <main id="inventory">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">OPERACIONES · INVENTARIO GLOBAL</p>
+        <h1>Control de stock</h1>
+      </div>
+      <div class="header-actions">
+        <button class="icon-button" id="refresh-button" title="Actualizar datos" aria-label="Actualizar datos"><i data-lucide="refresh-cw"></i></button>
+        <button class="button secondary" id="new-article-button"><i data-lucide="plus"></i>Artículo</button>
+        <button class="button primary" id="new-movement-button"><i data-lucide="arrow-left-right"></i>Movimiento</button>
+      </div>
+    </header>
+
+    <section class="metrics" aria-label="Resumen de inventario">
+      <article class="metric">
+        <span class="metric-label">ARTÍCULOS ACTIVOS</span>
+        <strong id="metric-articles">—</strong>
+        <span>catálogo global</span>
+      </article>
+      <article class="metric alert-metric">
+        <span class="metric-label">BAJO REORDEN</span>
+        <strong id="metric-reorder">—</strong>
+        <span>requieren atención</span>
+      </article>
+      <article class="metric">
+        <span class="metric-label">UNIDADES TOTALES</span>
+        <strong id="metric-stock">—</strong>
+        <span>LAX + Zaragoza</span>
+      </article>
+    </section>
+
+    <section class="workspace">
+      <div class="section-heading">
+        <div>
+          <h2>Artículos</h2>
+          <p>Stock derivado del diario de movimientos</p>
+        </div>
+        <label class="search-field">
+          <i data-lucide="search"></i>
+          <input id="search-input" type="search" placeholder="Buscar SKU o nombre" aria-label="Buscar artículos">
+        </label>
+      </div>
+
+      <div class="table-shell">
+        <table>
+          <thead>
+            <tr>
+              <th>Artículo</th>
+              <th>Estado</th>
+              <th class="numeric">Stock</th>
+              <th class="numeric">Reorden</th>
+              <th>Señal</th>
+              <th><span class="sr-only">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody id="inventory-body">
+            <tr><td colspan="6" class="empty-state">Cargando inventario…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="article-dialog">
+    <form id="article-form" method="dialog">
+      <div class="dialog-header">
+        <div><p class="eyebrow">CATÁLOGO</p><h2 id="article-dialog-title">Nuevo artículo</h2></div>
+        <button class="icon-button" type="button" data-close="article-dialog" title="Cerrar" aria-label="Cerrar"><i data-lucide="x"></i></button>
+      </div>
+      <input id="article-mode" type="hidden" value="create">
+      <label>SKU<input id="article-sku" required maxlength="100" autocomplete="off"></label>
+      <label>Nombre<input id="article-name" required maxlength="255" autocomplete="off"></label>
+      <label>Descripción<textarea id="article-description" rows="3"></textarea></label>
+      <label>Punto de reorden<input id="article-reorder" required type="number" min="0" value="0"></label>
+      <label class="toggle-field" id="article-active-field"><input id="article-active" type="checkbox" checked><span>Artículo activo</span></label>
+      <div class="dialog-actions">
+        <button class="button ghost" type="button" data-close="article-dialog">Cancelar</button>
+        <button class="button primary" type="submit"><i data-lucide="save"></i>Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="movement-dialog">
+    <form id="movement-form" method="dialog">
+      <div class="dialog-header">
+        <div><p class="eyebrow">DIARIO INMUTABLE</p><h2>Registrar movimiento</h2></div>
+        <button class="icon-button" type="button" data-close="movement-dialog" title="Cerrar" aria-label="Cerrar"><i data-lucide="x"></i></button>
+      </div>
+      <div class="form-grid">
+        <label>Artículo<select id="movement-sku" required></select></label>
+        <label>Almacén<select id="movement-warehouse" required><option value="LAX">Los Ángeles</option><option value="ZAZ">Zaragoza</option></select></label>
+      </div>
+      <div class="lot-row">
+        <label>Lote<select id="movement-lot" required></select></label>
+        <button class="icon-button" id="new-lot-button" type="button" title="Crear lote" aria-label="Crear lote"><i data-lucide="plus"></i></button>
+      </div>
+      <div class="form-grid">
+        <label>Tipo<select id="movement-type" required><option value="entrada">Entrada</option><option value="salida">Salida</option><option value="ajuste">Ajuste</option></select></label>
+        <label>Cantidad<input id="movement-quantity" type="number" min="1" required value="1"></label>
+      </div>
+      <label id="adjustment-direction-field" hidden>Dirección del ajuste<select id="movement-direction"><option value="aumentar">Aumentar stock</option><option value="reducir">Reducir stock</option></select></label>
+      <label>Motivo<textarea id="movement-reason" rows="3" maxlength="500" required placeholder="Recepción, expedición, conteo físico…"></textarea></label>
+      <div class="dialog-actions">
+        <button class="button ghost" type="button" data-close="movement-dialog">Cancelar</button>
+        <button class="button primary" type="submit"><i data-lucide="check"></i>Registrar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="lot-dialog" class="compact-dialog">
+    <form id="lot-form" method="dialog">
+      <div class="dialog-header"><h2>Nuevo lote</h2><button class="icon-button" type="button" data-close="lot-dialog" title="Cerrar" aria-label="Cerrar"><i data-lucide="x"></i></button></div>
+      <label>Código de lote<input id="lot-code" required maxlength="100" autocomplete="off"></label>
+      <div class="dialog-actions"><button class="button ghost" type="button" data-close="lot-dialog">Cancelar</button><button class="button primary" type="submit">Crear lote</button></div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

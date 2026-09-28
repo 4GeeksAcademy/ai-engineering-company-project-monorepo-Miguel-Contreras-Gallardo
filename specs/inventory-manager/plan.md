@@ -2,7 +2,7 @@
 
 ## Contexto y limite
 
-Este plan implementa [spec.md](spec.md) como servicio backend de inventario. Actualmente no hay codigo fuente versionado del servicio en `services/api`; las carpetas locales y la base de datos de desarrollo no constituyen un contrato de implementacion. El alta de articulos, almacenes y lotes debe existir antes de registrar movimientos, pero su interfaz de administracion queda fuera de esta fase. No se incluye ingesta de pedidos, alertas ni sincronizacion con los SGA.
+Este plan implementa [spec.md](spec.md) como servicio backend de inventario y backoffice operativo. El alta de articulos y lotes debe existir antes de registrar movimientos. La baja de articulos es logica para preservar el diario. Se incluye la senal visual de reorden en el backoffice; no se incluyen ingesta de pedidos, notificaciones externas ni sincronizacion con los SGA.
 
 ## Persistencia
 
@@ -10,10 +10,10 @@ Usar PostgreSQL como fuente de verdad: sus transacciones y bloqueos de filas per
 
 | Tabla | Claves y restricciones | Uso |
 | --- | --- | --- |
-| `articles` | `sku` clave primaria | Identidad del articulo. |
+| `articles` | `sku` clave primaria | Identidad, descripcion, punto de reorden y estado del articulo. |
 | `warehouses` | `id` clave primaria | Catalogo de almacenes; Los Angeles y Zaragoza se cargan como datos iniciales, no se codifican en la logica. |
 | `lots` | `id` clave primaria, `sku` referencia a `articles`, `UNIQUE (sku, code)` | Un mismo codigo de lote puede pertenecer a distintos articulos; la identidad interna evita confundirlos. |
-| `movements` | `id` clave primaria, `sequence` secuencia unica creciente, `request_key` unico, referencias a `lots` y `warehouses`, `type` restringido a entrada/salida, `quantity` entero `> 0`, `recorded_at` | Diario de movimientos confirmados; guardar tambien el SKU asociado al lote o resolverlo mediante la relacion, pero no almacenar una columna de stock editable. |
+| `movements` | `id` clave primaria, `sequence` secuencia unica creciente, `request_key` unico, referencias a `lots` y `warehouses`, tipo restringido, cantidad entera positiva, motivo, direccion de ajuste y fecha | Diario de movimientos confirmados; guardar tambien el SKU asociado al lote o resolverlo mediante la relacion, pero no almacenar una columna de stock editable. |
 
 Los movimientos son solo de insercion: la aplicacion no expone operaciones de actualizacion o borrado y el rol de base de datos que usa para registrar movimientos no debe tener permisos `UPDATE`/`DELETE` sobre `movements`. Las correcciones son nuevos movimientos sujetos a las mismas reglas de saldo. La clave de solicitud es globalmente unica; una restriccion `UNIQUE` la protege incluso si llegan reintentos simultaneos a distintos procesos. Usar enteros para unidades evita saldos fraccionarios por redondeo.
 
@@ -31,6 +31,12 @@ La logica vive en un servicio de dominio de inventario bajo `services/api/app/se
 2. Bloquear la fila del lote (`SELECT ... FOR UPDATE`) antes de calcular el saldo. El lote existe aun con saldo cero, asi que proporciona un punto de bloqueo estable para las primeras salidas. Todas las escrituras para ese lote, en cualquier almacen, pasan por este bloqueo; esto simplifica la exclusion mutua a costa de serializar tambien almacenes distintos del mismo lote.
 3. Calcular dentro de la transaccion el saldo del lote en el almacen solicitado a partir de movimientos confirmados. Si la salida lo supera, devolver stock insuficiente con saldo y cantidad sin insertar nada. Si es valida, insertar un movimiento con la clave unica y confirmar la transaccion; devolver el saldo resultante calculado tras aplicar la cantidad.
 4. Si la insercion colisiona en `request_key`, deshacer la transaccion, recuperar el movimiento original confirmado y comparar todos los datos de la solicitud: iguales implican replay, diferentes implican conflicto. Para replay, reconstruir el saldo original sumando solo movimientos de ese lote y almacen hasta la `sequence` del movimiento original; no devolver el saldo actual como si fuera el resultado inicial.
+
+Los ajustes usan cantidad positiva y una direccion explicita: `aumentar` suma y `reducir` resta. Un ajuste reductor aplica la misma comprobacion atomica de saldo que una salida.
+
+## Backoffice
+
+El backoffice bajo `uis/backoffice` consume exclusivamente los contratos de la API. Permite alta, edicion y baja logica de articulos, alta de lotes, registro de movimientos y consulta del stock derivado. La senal de reorden se obtiene de la API y se presenta tanto como contador global como estado por articulo; la interfaz nunca calcula ni edita un saldo directamente.
 
 El bloqueo previo al calculo evita que dos salidas del mismo lote lean a la vez un saldo que solo alcanza para una. La `sequence` permite reconstruir el resultado original: las inserciones del mismo lote se serializan bajo su bloqueo antes de recibir numero de secuencia. Tanto el control de concurrencia como la idempotencia deben ejecutarse en PostgreSQL, no depender de un bloqueo local al proceso de la API.
 

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.db.base import SessionLocal
-from app.db.models import Article, Lot, Movement
+from app.db.models import Article, Lot
 from app.schemas.inventory import ArticleCreate, ArticleResponse, ArticleUpdate, LotCreate, LotResponse
 
 router = APIRouter(prefix="/articles", tags=["articles"])
@@ -95,15 +95,7 @@ def delete_article(sku: str, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Article SKU '{sku}' not found",
         )
-    # Manually cascade: delete movements → lots → article
-    # (avoids SQLite FK + ORM cascade conflicts; PostgreSQL can rely on FK CASCADE)
-    lot_ids = [lot.id for lot in article.lots]
-    if lot_ids:
-        db.query(Movement).filter(Movement.lot_id.in_(lot_ids)).delete(
-            synchronize_session=False
-        )
-    db.query(Lot).filter(Lot.sku == sku).delete(synchronize_session=False)
-    db.delete(article)
+    article.active = False
     db.commit()
     return None
 

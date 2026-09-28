@@ -25,3 +25,9 @@ Cada tarea tiene un criterio principal de [spec.md](spec.md) y una comprobacion 
 - [ ] **T13 [INV-009]** Detectar reintentos con la misma clave y los mismos datos, incluso entre procesos, y reconstruir el resultado original. **Verificar:** dos solicitudes identicas crean un solo movimiento y devuelven el mismo saldo resultante original aunque exista un movimiento posterior.
 - [ ] **T14 [INV-009]** Rechazar la reutilizacion de una clave de solicitud con datos diferentes. **Verificar:** tras una solicitud confirmada, otra con igual clave y distinto contenido devuelve conflicto y no crea movimiento, incluso si llegan casi a la vez.
 - [ ] **T15 [INV-010]** Asegurar que la lectura de stock usa una unica instantanea de movimientos confirmados. **Verificar:** una consulta posterior a un commit incluye el movimiento, mientras otra anterior al commit no incluye el movimiento pendiente ni uno rechazado.
+
+## Catalogo y backoffice
+
+- [x] **T16 [INV-011]** Exponer alta, listado, edicion y baja logica de articulos sin eliminar el diario. **Verificar:** las operaciones actualizan el catalogo y una baja conserva lotes y movimientos.
+- [x] **T17 [INV-002]** Registrar entrada, salida y ajuste con cantidad positiva, motivo obligatorio y fecha; exigir direccion en los ajustes. **Verificar:** un ajuste de aumento suma, uno de reduccion resta y no puede dejar saldo negativo.
+- [x] **T18 [INV-012]** Mostrar en el backoffice el punto de reorden y una senal visible cuando el stock derivado quede por debajo. **Verificar:** la tabla y el contador cambian al cruzar el umbral sin editar el saldo directamente.

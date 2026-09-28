@@ -2,14 +2,14 @@
 
 ## Alcance
 
-El gestor unifica la consulta y el registro de inventario de los almacenes de Los Angeles y Zaragoza. Permite consultar existencias por SKU, almacen y lote, asi como el total por SKU entre almacenes. El pipeline de pedidos, las alertas y las integraciones con los SGA quedan fuera de esta especificacion; pueden consumir estos contratos sin modificar el saldo directamente.
+El gestor unifica la administracion, consulta y registro de inventario de los almacenes de Los Angeles y Zaragoza. Permite gestionar articulos, consultar existencias por SKU, almacen y lote, registrar movimientos y mostrar en el backoffice una senal de reorden. El pipeline de pedidos, las notificaciones externas y las integraciones con los SGA quedan fuera de esta especificacion; pueden consumir estos contratos sin modificar el saldo directamente.
 
 ## Modelo y contratos funcionales
 
-- **Articulo:** SKU unico e identificador de un articulo previamente registrado.
+- **Articulo:** SKU unico, nombre, descripcion opcional, punto de reorden y estado activo. La baja es logica para conservar lotes y movimientos historicos.
 - **Almacen:** identificador de un almacen registrado (Los Angeles o Zaragoza).
 - **Lote:** identificador asociado a un articulo registrado. Cada movimiento se imputa a un lote y un almacen; no se mezclan lotes ni almacenes para autorizar una salida.
-- **Movimiento:** registro inmutable con identificador unico, SKU, almacen, lote, tipo (`entrada` o `salida`), cantidad entera positiva y fecha de registro. Una entrada suma unidades; una salida resta unidades. Una rectificacion se realiza mediante un nuevo movimiento, nunca alterando uno ya registrado.
+- **Movimiento:** registro inmutable con identificador unico, SKU, almacen, lote, tipo (`entrada`, `salida` o `ajuste`), cantidad entera positiva, motivo obligatorio y fecha de registro. Una entrada suma unidades y una salida resta unidades. Un ajuste exige direccion (`aumentar` o `reducir`) y se registra como un nuevo movimiento, nunca alterando uno existente.
 - **Registrar movimiento:** recibe SKU, almacen, lote, tipo, cantidad y una clave unica de solicitud para evitar duplicados en reintentos. Solo acepta articulos, almacenes y lotes registrados y asociados correctamente. Devuelve el movimiento confirmado y el stock resultante para ese SKU, almacen y lote. Repetir la misma clave con los mismos datos devuelve el resultado original sin registrar otro movimiento; reutilizarla con otros datos devuelve un conflicto sin cambios.
 - **Consultar stock:** recibe un SKU registrado y, opcionalmente, almacen y lote (el lote exige indicar almacen). Devuelve las unidades por lote y almacen dentro del filtro, y el total del filtro. Un lote registrado sin movimientos tiene saldo cero; un SKU, almacen o lote desconocido devuelve error de recurso inexistente, no un saldo ficticio.
 - **Errores de escritura:** una cantidad no positiva o no entera, un tipo invalido o un lote que no pertenece al SKU se rechazan sin cambios. Una salida sin saldo suficiente devuelve error de stock insuficiente con saldo disponible y cantidad solicitada. Una salida de articulo o lote inexistente devuelve error de recurso inexistente sin crearlos implicitamente.
@@ -20,6 +20,7 @@ El gestor unifica la consulta y el registro de inventario de los almacenes de Lo
 2. Ningun saldo por SKU, almacen y lote puede ser negativo. La comprobacion de saldo y el registro de una salida son atomicos, incluso ante solicitudes concurrentes.
 3. Un movimiento confirmado aparece una sola vez en el historial y contribuye una sola vez al saldo. Un rechazo no crea movimientos ni cambia el stock.
 4. Las consultas reflejan todos los movimientos confirmados hasta el momento de la consulta y no incluyen movimientos rechazados o pendientes.
+5. La baja de un articulo no elimina ni modifica sus lotes o movimientos confirmados.
 
 ## Criterios de aceptacion (EARS)
 
@@ -33,3 +34,5 @@ El gestor unifica la consulta y el registro de inventario de los almacenes de Lo
 - **INV-008 (comportamiento no deseado):** Si una solicitud de movimiento tiene cantidad no entera o no positiva, tipo invalido o un almacen inexistente, el gestor debera rechazarla sin registrar movimiento ni alterar saldo alguno.
 - **INV-009 (evento):** Cuando se reintente una solicitud con la misma clave y los mismos datos, el gestor debera devolver el resultado original sin duplicar el movimiento; si la clave se reutiliza con otros datos, debera devolver conflicto sin alterar el historial.
 - **INV-010 (evento):** Cuando se confirme un movimiento, cualquier consulta posterior debera reflejarlo en el saldo; los movimientos pendientes o rechazados no deberan aparecer en el saldo consultado.
+- **INV-011 (evento):** Cuando un operador cree, consulte, edite o de baja un articulo, el catalogo debera reflejar el cambio y una baja debera conservar todo su historial.
+- **INV-012 (estado):** Mientras el stock global de un articulo activo sea menor o igual que su punto de reorden, el backoffice debera mostrar una senal visible de reposicion.

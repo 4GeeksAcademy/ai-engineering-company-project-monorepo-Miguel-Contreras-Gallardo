@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -13,6 +13,11 @@ class MovementType(str, Enum):
     entrada = "entrada"
     salida = "salida"
     ajuste = "ajuste"
+
+
+class AdjustmentDirection(str, Enum):
+    aumentar = "aumentar"
+    reducir = "reducir"
 
 
 # ── Articles ─────────────────────────────────────────────────────────
@@ -28,6 +33,7 @@ class ArticleUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
     reorder_point: Optional[int] = Field(None, ge=0)
+    active: Optional[bool] = None
 
 
 class ArticleResponse(BaseModel):
@@ -35,6 +41,7 @@ class ArticleResponse(BaseModel):
     name: str
     description: Optional[str] = None
     reorder_point: int
+    active: bool
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -81,13 +88,17 @@ class MovementRegister(BaseModel):
     lot_code: str = Field(..., min_length=1)
     type: MovementType
     quantity: int = Field(..., gt=0)
-    reason: Optional[str] = None
+    adjustment_direction: Optional[AdjustmentDirection] = None
+    reason: str = Field(..., min_length=1, max_length=500)
     request_key: str = Field(..., min_length=1, max_length=255)
 
-    @field_validator("type")
-    @classmethod
-    def type_valid(cls, v: MovementType) -> MovementType:
-        return v  # already constrained by the Enum
+    @model_validator(mode="after")
+    def validate_adjustment_direction(self):
+        if self.type == MovementType.ajuste and self.adjustment_direction is None:
+            raise ValueError("adjustment_direction is required for ajuste movements")
+        if self.type != MovementType.ajuste and self.adjustment_direction is not None:
+            raise ValueError("adjustment_direction is only valid for ajuste movements")
+        return self
 
 
 class MovementResponse(BaseModel):
@@ -98,7 +109,8 @@ class MovementResponse(BaseModel):
     lot_id: int
     type: str
     quantity: int
-    reason: Optional[str] = None
+    adjustment_direction: Optional[str] = None
+    reason: str
     recorded_at: datetime
 
     model_config = {"from_attributes": True}
