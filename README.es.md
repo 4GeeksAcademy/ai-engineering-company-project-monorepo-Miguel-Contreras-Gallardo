@@ -211,7 +211,22 @@ Lee el `README.md` enlazado dentro de cada carpeta antes de empezar a programar 
 
 **Mantener en la raíz del repo:** `docker-compose.yml` — orquesta el entorno local de `services/`, bases de datos y otros contenedores desde un solo lugar.
 
-→ Ver [`infra/README.md`](./infra/README.md)
+### Infraestructura Docker (desplegada)
+
+El proyecto incluye una configuración Docker completa para desarrollo local y despliegue en producción:
+
+| Servicio | Contenedor | Puerto | Tecnología |
+|----------|------------|--------|------------|
+| Base de datos | `trackflow-db` | 5432 | PostgreSQL 16 Alpine |
+| API | `trackflow-api` | 8000 | Python 3.12 + FastAPI + Uvicorn |
+| UIs | `trackflow-uis` | 3000, 3001 | Node 20 Alpine + `serve` |
+
+**Producción:** Desplegado en `207.154.214.100` vía Nginx reverse proxy:
+- 🌐 Website → `/` → `localhost:3000`
+- 📊 Backoffice → `/backoffice` → `localhost:3001`
+- 🔌 API → `/api` → `localhost:8000`
+
+→ Ver [`infra/README.md`](./infra/README.md) · [`services/Dockerfile`](./services/Dockerfile) · [`uis/Dockerfile`](./uis/Dockerfile) · [`scripts/deploy.sh`](./scripts/deploy.sh)
 
 ### `scripts/` — scripts de ayuda
 
