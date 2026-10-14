@@ -1,0 +1,9 @@
+[project]
+name = "trackflow"
+version = "0.1.0"
+description = "TrackFlow AI Platform — Automatización e IA para logística de última milla"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv]
+dev-dependencies = []

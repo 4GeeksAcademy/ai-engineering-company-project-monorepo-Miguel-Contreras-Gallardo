@@ -1,129 +1,219 @@
-# Bienvenido a TrackFlow
+# TrackFlow — Contexto de Empresa
 
-## AI Engineering · 4Geeks Academy — Briefing de empresa
-
----
-
-TrackFlow es una empresa de logística de última milla y gestión de almacenes fundada en 2009 en Los Ángeles, Estados Unidos. Opera en dos mercados — Estados Unidos y España — con almacenes en Los Ángeles y Zaragoza. La empresa cuenta con unos 130 empleados y factura alrededor de 9 millones de euros anuales.
-
-TrackFlow existe porque las marcas de e-commerce son buenas haciendo y vendiendo productos, pero no haciendo llegar esos productos a la puerta del cliente. Eso es lo que hace TrackFlow por ellas: almacena su inventario, prepara y empaqueta los pedidos, los envía a través de una red de transportistas y gestiona las devoluciones cuando los productos regresan. Para las marcas que trabajan con TrackFlow, toda la operación logística — desde el momento en que se hace un pedido hasta el momento en que se entrega o se devuelve — es responsabilidad de TrackFlow.
-
-## Cómo está organizada la empresa
-
-TrackFlow está liderada por **Thomas Harry**, fundador y CEO, con sede en Los Ángeles. La empresa tiene una oficina de tecnología en Zaragoza, España, donde están el CTO Andrés Kim y la mayor parte del equipo técnico. Los equipos de operaciones, comercial y atención al cliente están distribuidos entre los dos países.
-
-La empresa se organiza en las siguientes áreas:
-
-**Operaciones de Almacén** es donde ocurre el trabajo físico de la logística. Ana Whitfield supervisa los dos almacenes —uno en Los Ángeles, otro en Zaragoza— y los aproximadamente 70 operarios que los gestionan. Cada día, cientos de pedidos llegan, se recogen de las estanterías, se empaquetan y se entregan a los transportistas. Los dos almacenes funcionan con sistemas distintos y no tienen una visión compartida del inventario.
-
-**Última Milla y Gestión de Transportistas** gestiona la relación con los 8 transportistas con los que TrackFlow trabaja en los dos países — entre ellos UPS, FedEx, MRW y SEUR. Carlos Vega coordina qué transportista lleva cada envío, hace seguimiento de las entregas y gestiona las incidencias que inevitablemente ocurren: paquetes perdidos, entregas fallidas, direcciones incorrectas. Hoy, la mayor parte de esto se hace de forma manual, transportista por transportista.
-
-**Logística Inversa** gestiona lo que ocurre cuando un producto regresa. Sofía Ramos lidera este equipo de cinco personas. Las devoluciones representan entre el 18% y el 25% del volumen total según el cliente y el país, y cada devolución implica una cadena de decisiones — aprobar o rechazar, recoger o no, reacondicionar o desechar — que actualmente pasan todas por revisión humana.
-
-**Atención al Cliente** es la primera línea entre TrackFlow y las personas a las que sirve. Valentina Cruz gestiona 15 agentes en Los Ángeles y Zaragoza que atienden consultas tanto de las marcas (que quieren saber cómo va su operación) como de los consumidores finales (que quieren saber dónde está su paquete). La gran mayoría de las consultas son repetitivas, y ahora mismo cada una de ellas la responde una persona.
-
-**Comercial y Relación con Clientes** gestiona la cartera de clientes marca de TrackFlow. Miguel Torres lidera a los account managers y al equipo de desarrollo de negocio, responsables de retener a los clientes actuales y ganar nuevos. Los contratos son anuales, y las renovaciones se ganan o se pierden en función de si los clientes sienten que su operación logística está funcionando bien.
-
-**Tecnología** es el equipo que construye y mantiene todo. Andrés Kim lidera desde Zaragoza a un equipo de desarrolladores, data engineers y personas de sistemas. La arquitectura actual es un patchwork: dos sistemas de almacén distintos, un ERP de principios de los años 2010 e integraciones entre ellos que se construyeron con rapidez y nunca se documentaron bien. Cuando algo falla, el equipo se entera por un mensaje de WhatsApp de alguien en operaciones.
-
-**Dirección Ejecutiva** recae en Thomas, que gestiona el negocio desde Los Ángeles con un informe semanal consolidado que cada director prepara manualmente — un proceso que consume horas cada domingo por la noche y que aun así entrega datos que ya llevan uno o dos días de antigüedad.
-
-## Dónde está la empresa hoy
-
-TrackFlow tiene buenos clientes, un equipo de operaciones competente y una propuesta de valor clara. Lo que le falta es la infraestructura para gestionar una operación logística de dos países a escala. Los dos almacenes no pueden ver el inventario del otro. Los datos de rendimiento de los transportistas no existen en ninguna forma estructurada. Las devoluciones se aprueban o rechazan una por una. Las consultas de los clientes las responden agentes consultando un documento de Word en Google Drive. El CEO toma decisiones basándose en un informe ensamblado a mano.
-
-La consecuencia es que TrackFlow es más lenta, más propensa a errores y menos rentable de lo que necesita ser — y la brecha crece mientras los competidores invierten en automatización.
-
-Daniel ha creado una unidad interna llamada **TrackFlow Tech** con un mandato claro: construir los sistemas, las integraciones y las automatizaciones inteligentes que permitan a TrackFlow operar como la empresa logística moderna que necesita ser.
-
-**Tú formas parte de esa unidad.**
+> **Fuente única de verdad para todos los agentes, servicios y prompts del proyecto.**
+> _Última actualización: 2026-09-23_
 
 ---
 
-## Los departamentos y sus problemas
+## 1. LA EMPRESA
 
-### 🚚 Operaciones de almacén
+| Dato | Valor |
+|---|---|
+| **Nombre** | TrackFlow |
+| **Sector** | Logística de última milla y gestión de almacenes |
+| **Fundación** | 2009 — Los Ángeles, EE.UU. |
+| **Mercados** | Estados Unidos y España |
+| **Almacenes** | Los Ángeles (EE.UU.) y Zaragoza (España) |
+| **Empleados** | ~130 |
+| **Facturación** | ~9M€ anuales |
+| **CEO** | Thomas Harry (Los Ángeles) |
+| **CTO** | Andrés Kim (Zaragoza) |
+| **Unidad Tech** | TrackFlow Tech — liderada por Daniel |
 
-**Responsable:** Ana Whitfield (~70 operarios + 2 responsables de almacén)
-
-El almacén de Los Ángeles y el de Zaragoza utilizan sistemas de gestión de almacén (SGA) diferentes — uno es software comercial, el otro es una hoja de cálculo avanzada. No existe visibilidad de inventario en tiempo real a nivel global. Los pedidos entrantes llegan por email en formatos distintos según el cliente y se transcriben manualmente. El picking se hace con listas en papel. Las discrepancias de inventario son frecuentes y se detectan tarde.
-
-**Qué necesitan:** Una API de inventario unificada que devuelva el stock en tiempo real de cualquier SKU en cualquiera de los dos almacenes, un pipeline de ingesta de pedidos que parsee los emails automáticamente, un dashboard de operaciones de almacén, y alertas de stock bajo que notifiquen al cliente y al equipo de compras.
-
----
-
-### 📦 Última milla y gestión de transportistas
-
-**Responsable:** Carlos Vega (6 coordinadores logísticos)
-
-TrackFlow trabaja con 8 transportistas en ambos países (UPS, FedEx y DHL en Estados Unidos; MRW, SEUR y DHL en España, más dos transportistas locales). La asignación de transportista por envío es manual. El seguimiento de paquetes obliga a consultar múltiples portales de cada transportista por separado. No hay datos históricos de rendimiento: sin tasa de entrega a tiempo, sin incidencias por ruta, sin coste por kg.
-
-**Qué necesitan:** Un motor de selección de transportista que recomiende la opción óptima dado el destino, peso y urgencia; un endpoint unificado de tracking que agregue el estado desde cualquier transportista; un portal de seguimiento público para el destinatario; y un dashboard de rendimiento de transportistas.
+### Propuesta de valor
+TrackFlow almacena inventario, prepara y empaqueta pedidos, los envía a través de una red de transportistas y gestiona las devoluciones para marcas de e-commerce. Las marcas se centran en vender; TrackFlow se encarga de la logística.
 
 ---
 
-### 🔄 Logística inversa
+## 2. DEPARTAMENTOS
 
-**Responsable:** Sofía Ramos (equipo de 5 personas)
+### 🚚 Operaciones de Almacén
+- **Responsable:** Ana Whitfield
+- **Equipo:** ~70 operarios + 2 responsables de almacén
+- **Problemas:**
+  - Dos SGA distintos (LA: software comercial, Zaragoza: hoja de cálculo avanzada)
+  - Sin visibilidad de inventario en tiempo real a nivel global
+  - Pedidos entrantes por email, formatos distintos según cliente, transcripción manual
+  - Picking con listas en papel
+  - Discrepancias de inventario frecuentes y detección tardía
+- **Necesidades:** API de inventario unificada, pipeline de ingesta de pedidos, dashboard de operaciones, alertas de stock bajo
 
-Las devoluciones representan entre el 18% y el 25% del volumen según cliente y país. Cada devolución pasa por revisión manual — no existen criterios de aprobación automáticos. La inspección del producto devuelto es subjetiva e inconsistente entre operarios. No hay visibilidad sobre qué productos se devuelven más ni por qué.
+### 📦 Última Milla y Gestión de Transportistas
+- **Responsable:** Carlos Vega
+- **Equipo:** 6 coordinadores logísticos
+- **Problemas:**
+  - Asignación manual de transportista por envío
+  - Seguimiento obliga a consultar múltiples portales
+  - Sin datos históricos de rendimiento (tasa entrega, incidencias, coste/kg)
+- **Transportistas:**
+  - EE.UU.: UPS, FedEx, DHL
+  - España: MRW, SEUR, DHL + 2 transportistas locales
+- **Necesidades:** Motor de selección inteligente de transportista, endpoint unificado de tracking, portal público de seguimiento, dashboard de rendimiento
 
-**Qué necesitan:** Un motor de aprobación automática de devoluciones con reglas configurables por cliente, un flujo automatizado de recogida (aprobación → etiqueta → instrucciones al cliente → programación con transportista), un sistema de inspección asistido por IA donde el operario fotografía el producto y la IA clasifica su estado, y un dashboard de devoluciones con análisis de patrones.
+### 🔄 Logística Inversa
+- **Responsable:** Sofía Ramos
+- **Equipo:** 5 personas
+- **Problemas:**
+  - 18-25% del volumen son devoluciones (varía por cliente y país)
+  - Revisión 100% manual — sin criterios de aprobación automáticos
+  - Inspección subjetiva e inconsistente entre operarios
+  - Sin visibilidad de patrones de devolución
+- **Necesidades:** Motor de aprobación automática con reglas por cliente, flujo automatizado de recogida, inspección asistida por IA (foto → clasificación), dashboard de patrones
 
----
+### 📞 Experiencia al Cliente (CX)
+- **Responsable:** Valentina Cruz
+- **Equipo:** 15 agentes (Los Ángeles y Zaragoza)
+- **Canales:** Email, WhatsApp, teléfono
+- **Tipos de cliente:** B2B (marcas) y B2C (consumidores finales)
+- **Problemas:**
+  - Sin sistema unificado de tickets
+  - ~80% consultas repetitivas (seguimiento, estado devoluciones)
+  - Sin base de conocimiento
+  - Sin cobertura fuera de horario de oficina
+- **Necesidades:** Agente CX automático, base de conocimiento semántica (RAG), sistema de tickets unificado, dashboard en tiempo real, análisis de sentimiento, soporte multiidioma (español + inglés, opcional)
 
-### 📞 Experiencia del cliente
-
-**Responsable:** Valentina Cruz (15 agentes en Los Ángeles y Zaragoza)
-
-TrackFlow atiende a dos tipos de cliente: las marcas (B2B) que contratan sus servicios y los consumidores finales (B2C) que reciben los paquetes. Los 15 agentes gestionan ambos a través de email, WhatsApp y teléfono sin un sistema unificado de tickets. El 80% de las consultas podría resolverse automáticamente. No hay base de conocimiento. La cobertura fuera del horario de oficina es cero.
-
-**Qué necesitan:** Un agente de CX de primera línea que resuelva automáticamente consultas de seguimiento y estado de devoluciones, una base de conocimiento semántica indexada para RAG, un sistema unificado de tickets, un dashboard de CX en tiempo real, y análisis de sentimiento para detectar clientes frustrados antes de que escalen. El soporte multiidioma (español + inglés) es opcional pero altamente recomendado, empezando por un idioma base.
-
----
-
-### 🤝 Comercial y relación con clientes
-
-**Responsable:** Miguel Torres (4 account managers + 4 desarrollo de negocio)
-
-Los account managers gestionan sus cuentas en hojas de cálculo personales e hilos de email — no hay CRM. Los informes a clientes son manuales: cada mes un account manager consolida datos de distintos sistemas para enviar a cada cliente un informe en PDF. No hay visibilidad sobre qué clientes corren riesgo de no renovar.
-
-**Qué necesitan:** Integración con CRM con perfil unificado de cliente, informes PDF para clientes generados automáticamente por un agente, un dashboard de salud de cliente con puntuación de riesgo de renovación, alertas a 90 y 30 días del vencimiento del contrato, y un agente comercial que sugiera el servicio y la estructura de precios más relevantes para cada prospecto.
-
----
+### 🤝 Comercial y Relación con Clientes
+- **Responsable:** Miguel Torres
+- **Equipo:** 4 account managers + 4 desarrollo de negocio
+- **Problemas:**
+  - Sin CRM — cuentas en hojas de cálculo personales e hilos de email
+  - Informes a clientes mensuales consolidados a mano
+  - Sin visibilidad de riesgo de renovación (contratos anuales)
+- **Necesidades:** Integración con CRM, informes PDF automáticos, dashboard de salud de cliente con scoring de renovación, alertas a 90 y 30 días, agente comercial para prospección
 
 ### 💻 Tecnología
-
-**CTO:** Andrés Kim (equipo de 7 personas en Zaragoza)
-
-La arquitectura tecnológica de TrackFlow es el resultado de años de crecimiento no planificado: dos SGA diferentes, un ERP corporativo de principios de la década de 2010, scripts de Python punto a punto sin documentar, y bases de datos en dos proveedores cloud distintos. No hay telemetría centralizada. Cuando un endpoint falla en Los Ángeles, el equipo de Zaragoza se entera por WhatsApp. Desplegar una nueva funcionalidad lleva entre una y dos semanas.
-
-**Qué necesitan:** Telemetría y logging centralizados de ambos países, un pipeline de datos que alimente todos los dashboards de la empresa, monitorización en tiempo real con alertas automáticas, un agente de documentación técnica, y automatización de tareas de operaciones (backups, health checks, notificaciones de incidencias con contexto).
-
----
+- **Responsable:** Andrés Kim
+- **Equipo:** 7 personas (Zaragoza)
+- **Problemas:**
+  - Arquitectura: dos SGA distintos + ERP (2010) + scripts Python sin documentar
+  - Bases de datos en dos proveedores cloud distintos
+  - Sin telemetría centralizada
+  - Caídas detectadas por WhatsApp
+  - Deploys: 1-2 semanas
+- **Necesidades:** Telemetría y logging centralizados, pipeline de datos unificado, monitorización con alertas automáticas, agente de documentación técnica, automatización de operaciones
 
 ### 📊 Dirección Ejecutiva
-
-**CEO:** Daniel Espinoza
-
-Daniel recibe un informe consolidado cada lunes que sus directores preparan el domingo por la tarde combinando datos de distintos sistemas — 3 o 4 horas de trabajo por director. A las 10 de la mañana del lunes, algunos datos ya tienen dos días de antigüedad. No hay una visión unificada del negocio por país. Las decisiones estratégicas se toman con datos parciales.
-
-**Qué necesita:** Un dashboard ejecutivo global con KPIs de ambas operaciones en tiempo real (volumen de envíos, tasa de entrega a tiempo, coste operativo, devoluciones, satisfacción del cliente), un informe semanal generado automáticamente los lunes a las 7 de la mañana, comparativas por país, alertas por umbrales, y un asistente de IA al que pueda consultar en lenguaje natural.
-
----
-
-## ¿Por qué elegir TrackFlow?
-
-Elige TrackFlow si te atraen:
-
-- **Logística y operaciones físicas** — cada línea de código que escribas está conectada a un paquete que se mueve de una estantería de almacén a la puerta de alguien.
-- **Complejidad transfronteriza** — dos países, dos idiomas, dos entornos regulatorios y dos stacks tecnológicos separados que hay que unificar.
-- **Ingeniería de datos en su forma más concreta** — métricas de rendimiento de transportistas, inventario a nivel de SKU, streams de eventos de envío y clasificación de devoluciones son todos estructurados, medibles y visualmente impactantes en dashboards.
-- **Sistemas que funcionan 24/7** — los clientes de TrackFlow no dejan de esperar sus paquetes después de las 18:00. El agente de CX, el portal de seguimiento y el dashboard de operaciones deben estar siempre disponibles.
-
-Los retos de IA en TrackFlow incluyen clasificación de estado de productos devueltos por imagen, búsqueda semántica sobre políticas logísticas en dos idiomas, selección inteligente de transportista con recomendaciones explicables, y un agregador de tracking en tiempo real que extrae datos de 8 APIs de transportistas distintas. Si quieres construir sistemas que manejen complejidad del mundo físico a escala, TrackFlow es tu empresa.
+- **CEO:** Thomas Harry (Los Ángeles)
+- **Problemas:**
+  - Informe semanal consolidado manualmente por cada director (3-4h los domingos)
+  - Datos con 1-2 días de antigüedad el lunes
+  - Sin visión unificada del negocio por país
+- **Necesidades:** Dashboard ejecutivo global en tiempo real, informe semanal automático (lunes 7:00 AM), comparativas por país, alertas por umbrales, asistente IA por lenguaje natural
 
 ---
 
-_Documento interno — 4Geeks Academy · AI Engineering Track_
-_Uso exclusivo para la generación de proyectos del programa_
+## 3. ENTIDADES DEL DOMINIO Y MODELO DE DATOS
+
+```
+Cliente (Marca) → Contrato → Pedido → Envío → TrackingEvent
+                                            → Devolución → Inspección
+                                LíneaPedido → SKU → Inventario (por almacén)
+
+Transportista → Tarifa → Ruta
+Consumidor Final → Consulta → Ticket
+                                            → Incidencia
+Operario / Sistema / Cliente B2B ──────────→ Incidencia
+```
+
+| Entidad | Descripción | Campos clave |
+|---|---|---|
+| **Cliente (Marca)** | Empresa de e-commerce que contrata TrackFlow | id, nombre, pais, contrato_id, scoring_renovacion, fecha_alta |
+| **SKU** | Unidad de stock keeping | id, nombre, peso_kg, dimensiones_cm, categoria, valor_unitario |
+| **Almacén** | Centro logístico | id, ubicacion (LA/Zaragoza), sga_tipo (comercial/hoja_calculo), capacidad |
+| **Inventario** | Stock de un SKU en un almacén | sku_id, almacen_id, cantidad_disponible, stock_minimo, stock_seguridad |
+| **Pedido** | Solicitud de envío de una marca | id, cliente_id, fecha_creacion, estado, canal_entrada (email/api), lineas[] |
+| **LíneaPedido** | Producto individual dentro de un pedido | id, pedido_id, sku_id, cantidad, precio_unitario |
+| **Envío** | Unidad logística hacia un consumidor | id, pedido_id, transportista_id, numero_tracking, estado, destino, peso_kg, urgente |
+| **TrackingEvent** | Evento de seguimiento de un envío | envio_id, timestamp, estado, ubicacion, transportista |
+| **Devolución** | Producto devuelto por el consumidor | id, envio_id, motivo, estado_aprobacion, estado_inspeccion, fecha_solicitud |
+| **Inspección** | Evaluación del producto devuelto | devolucion_id, operario_id, fotos[], clasificacion_ia, dictamen (reacondicionar/desechar) |
+| **Transportista** | Empresa de mensajería | id, nombre, pais_operacion, tarifas[], metricas_rendimiento |
+| **Ticket** | Consulta de CX | id, origen (email/whatsapp/tel), cliente_tipo (B2B/B2C), estado, resuelto_por_ia, agente_id |
+| **Incidencia** | 🆕 Desviación operativa que requiere seguimiento y resolución con auditoría | id, titulo, descripcion, canal, categoria, prioridad, estado, area_asignada, responsable, fechas, audit_log[] |
+
+---
+
+## 4. REGLAS DE NEGOCIO Y RESTRICCIONES
+
+### 4.1 Inventario
+- TrackFlow no produce ni vende productos — solo los almacena y gestiona su logística
+- El inventario es propiedad de las marcas clientes
+- Cada almacén opera de forma independiente; no hay traspaso automático entre almacenes
+- Stock mínimo: configurable por SKU y por cliente
+
+### 4.2 Envíos y Transportistas
+- 8 transportistas con cobertura en EE.UU. y España
+- La asignación debe considerar: destino, peso, urgencia y coste
+- Cada transportista tiene su propio sistema de tracking (8 APIs distintas)
+- Los envíos urgentes tienen prioridad en la asignación
+
+### 4.3 Devoluciones
+- Tasa de devolución: 18-25% del volumen
+- La aprobación depende de: motivo, cliente, valor del producto, tiempo desde la compra
+- Tras inspección, el producto puede: reacondicionarse (reingresa a inventario) o desecharse
+- Cada cliente puede tener reglas de aprobación personalizadas
+
+### 4.4 Atención al Cliente
+- Dos perfiles de cliente muy distintos: marcas (B2B) y consumidores finales (B2C)
+- Las consultas B2B suelen ser sobre volúmenes, contratos y operativa
+- Las consultas B2C son sobre seguimiento de envíos y devoluciones
+- Idiomas: español (Zaragoza) e inglés (Los Ángeles)
+
+### 4.5 Comercial
+- Contratos anuales con las marcas
+- Renovación basada en satisfacción del cliente con la operación logística
+- Informes mensuales de rendimiento a clientes (actualmente manuales)
+
+---
+
+## 5. INFRAESTRUCTURA TECNOLÓGICA ACTUAL
+
+| Componente | Descripción |
+|---|---|
+| **SGA Los Ángeles** | Software comercial de gestión de almacenes |
+| **SGA Zaragoza** | Hoja de cálculo avanzada (Excel/Google Sheets) |
+| **ERP Corporativo** | Sistema de principios de 2010 |
+| **Integraciones** | Scripts Python punto a punto, sin documentar |
+| **Bases de datos** | Dos proveedores cloud distintos |
+| **Telemetría** | No existe. Caídas detectadas por WhatsApp |
+| **Despliegues** | Manuales, 1-2 semanas por funcionalidad |
+
+### Stack objetivo (TrackFlow Tech)
+- Backend: Python + FastAPI
+- Frontend: Por definir
+- Agentes IA: Por definir (LangChain / CrewAI / LangGraph)
+- Orquestación: n8n
+- Infra: Docker / docker-compose
+- Tracking: Integración con 8 APIs de transportistas
+
+---
+
+## 6. OBJETIVOS DEL PROYECTO
+
+1. **Unificar** la visibilidad de inventario entre los dos almacenes
+2. **Automatizar** la asignación de transportistas y el seguimiento de envíos
+3. **Agilizar** el proceso de devoluciones con reglas automáticas e IA
+4. **Resolver** el 80% de consultas de CX automáticamente
+5. **Centralizar** la telemetría y monitorización de toda la operación
+6. **Proporcionar** inteligencia de negocio en tiempo real al CEO
+
+---
+
+## 7. GLOSARIO
+
+| Término | Definición |
+|---|---|
+| **Última milla** | Tramo final de la entrega desde el centro logístico hasta el destinatario |
+| **SGA** | Sistema de Gestión de Almacenes (WMS en inglés) |
+| **SKU** | Stock Keeping Unit — identificador único de producto |
+| **Picking** | Proceso de recogida de productos de las estanterías para preparar un pedido |
+| **Logística inversa** | Proceso de gestión de devoluciones |
+| **RAG** | Retrieval-Augmented Generation — búsqueda semántica + generación de respuesta |
+| **MCP** | Model Context Protocol — protocolo para conectar modelos con herramientas externas |
+| **n8n** | Plataforma de orquestación y automatización de workflows |
+| **Transportista** | Empresa de mensajería que realiza la entrega física |
+
+---
+
+_4Geeks Academy — AI Engineering Track · Proyecto Transversal_
+_Documento de contexto de empresa — usar como fuente única de verdad para todos los agentes y servicios_
