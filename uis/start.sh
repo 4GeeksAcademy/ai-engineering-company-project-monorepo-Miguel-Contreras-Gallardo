@@ -5,11 +5,11 @@
 set -e
 
 echo "==> Starting TrackFlow website on :3000"
-cd /app/website && serve . -p 3000 --no-ssl --no-clipboard --single &
+cd /app/website && serve . -p 3000 --single &
 PID_WEBSITE=$!
 
 echo "==> Starting TrackFlow backoffice on :3001"
-cd /app/backoffice && serve . -p 3001 --no-ssl --no-clipboard --single &
+cd /app/backoffice && serve . -p 3001 --single &
 PID_BACKOFFICE=$!
 
 # Forward signals to child processes
