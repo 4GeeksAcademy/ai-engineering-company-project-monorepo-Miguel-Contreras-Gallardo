@@ -1,0 +1,63 @@
+# TrackFlow — Docker Compose
+# Orquesta: PostgreSQL + API FastAPI + UIs (website + backoffice)
+
+name: trackflow
+
+services:
+  # ── Base de datos ──────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: trackflow-db
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-trackflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trackflow}
+      POSTGRES_DB: ${POSTGRES_DB:-trackflow}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-trackflow} -d ${POSTGRES_DB:-trackflow}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── API FastAPI ────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: services/
+      dockerfile: Dockerfile
+    container_name: trackflow-api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-trackflow}:${POSTGRES_PASSWORD:-trackflow}@postgres:5432/${POSTGRES_DB:-trackflow}
+      DEBUG: ${DEBUG:-true}
+    env_file:
+      - .env
+    volumes:
+      - ./services/api:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      sh -c "uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
+
+  # ── UIs (Website + Backoffice en un mismo contenedor) ──────────────────────
+  uis:
+    build:
+      context: uis/
+      dockerfile: Dockerfile
+    container_name: trackflow-uis
+    restart: unless-stopped
+    ports:
+      - "${WEBSITE_PORT:-3000}:3000"
+      - "${BACKOFFICE_PORT:-3001}:3001"
+    volumes:
+      - ./uis/website:/app/website
+      - ./uis/backoffice:/app/backoffice
+
+volumes:
+  pgdata:
