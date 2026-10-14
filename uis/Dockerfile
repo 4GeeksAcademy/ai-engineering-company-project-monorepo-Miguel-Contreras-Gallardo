@@ -5,18 +5,22 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Instalar dependencias de website y backoffice por separado
-COPY website/package.json website/
-RUN cd website && npm install
+# Instalar serve globalmente (no depende de bind mounts)
+RUN npm install -g serve@^14.2.0
 
+# Copiar package.json por separado para cache de capas Docker
+COPY website/package.json website/
 COPY backoffice/package.json backoffice/
+
+# Instalar dependencias de cada UI en su propio directorio
+RUN cd website && npm install
 RUN cd backoffice && npm install
 
-# Copiar código fuente de ambas interfaces
+# Copiar código fuente (será sobrescrito por bind mount en desarrollo)
 COPY website/ website/
 COPY backoffice/ backoffice/
 
-# Script de arranque para ambos servicios
+# Script de arranque
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
 

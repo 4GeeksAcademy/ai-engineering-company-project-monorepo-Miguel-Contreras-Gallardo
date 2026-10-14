@@ -1,5 +1,6 @@
 # TrackFlow — Docker Compose
 # Orquesta: PostgreSQL + API FastAPI + UIs (website + backoffice)
+# Todas las variables sensibles se cargan desde .env (no versionado en Git)
 
 name: trackflow
 
@@ -11,6 +12,8 @@ services:
     restart: unless-stopped
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
+    env_file:
+      - .env
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-trackflow}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trackflow}
@@ -22,6 +25,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - trackflow-net
 
   # ── API FastAPI ────────────────────────────────────────────────────────────
   api:
@@ -32,20 +37,22 @@ services:
     restart: unless-stopped
     ports:
       - "${API_PORT:-8000}:8000"
-    environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-trackflow}:${POSTGRES_PASSWORD:-trackflow}@postgres:5432/${POSTGRES_DB:-trackflow}
-      DEBUG: ${DEBUG:-true}
     env_file:
       - .env
+    environment:
+      # La URL usa el nombre del servicio (postgres), no localhost
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-trackflow}:${POSTGRES_PASSWORD:-trackflow}@postgres:5432/${POSTGRES_DB:-trackflow}
+      DEBUG: ${DEBUG:-true}
     volumes:
       - ./services/api:/app
     depends_on:
       postgres:
         condition: service_healthy
-    command: >
-      sh -c "uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
+    command: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+    networks:
+      - trackflow-net
 
-  # ── UIs (Website + Backoffice en un mismo contenedor) ──────────────────────
+  # ── UIs (Website + Backoffice) ────────────────────────────────────────────
   uis:
     build:
       context: uis/
@@ -58,6 +65,15 @@ services:
     volumes:
       - ./uis/website:/app/website
       - ./uis/backoffice:/app/backoffice
+    depends_on:
+      - api
+    networks:
+      - trackflow-net
 
 volumes:
   pgdata:
+
+networks:
+  trackflow-net:
+    name: trackflow-net
+    driver: bridge
