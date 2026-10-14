@@ -8,36 +8,95 @@ const state = {
 
 const elements = {};
 
-window.addEventListener("DOMContentLoaded", () => {
-  Object.assign(elements, {
-    body: document.querySelector("#inventory-body"),
-    search: document.querySelector("#search-input"),
-    articleDialog: document.querySelector("#article-dialog"),
-    articleForm: document.querySelector("#article-form"),
-    movementDialog: document.querySelector("#movement-dialog"),
-    movementForm: document.querySelector("#movement-form"),
-    lotDialog: document.querySelector("#lot-dialog"),
-    lotForm: document.querySelector("#lot-form"),
-    toast: document.querySelector("#toast"),
+// ---- Company data from CONTEXT.md ----
+const COMPANY_DATA = {
+  departments: [
+    { name: "Operaciones de Almacén", lead: "Ana Whitfield", desc: "Supervisa los almacenes de LA y Zaragoza (~70 operarios). Gestión de pedidos, picking y empaquetado." },
+    { name: "Última Milla", lead: "Carlos Vega", desc: "Coordina 8 transportistas (UPS, FedEx, DHL, MRW, SEUR). Seguimiento de entregas e incidencias." },
+    { name: "Logística Inversa", lead: "Sofía Ramos", desc: "Gestiona devoluciones (18-25% del volumen). Aprobación, recogida, inspección y reacondicionamiento." },
+    { name: "Atención al Cliente", lead: "Valentina Cruz", desc: "15 agentes en LA y Zaragoza. Consultas B2B y B2C por email, WhatsApp y teléfono." },
+    { name: "Comercial y Clientes", lead: "Miguel Torres", desc: "Account managers + desarrollo de negocio. Cartera de clientes marca y renovaciones anuales." },
+    { name: "Tecnología", lead: "Andrés Kim (CTO)", desc: "7 personas en Zaragoza. Arquitectura, data engineering y sistemas. TrackFlow Tech." },
+  ],
+  team: [
+    { initials: "TH", name: "Thomas Harry", role: "CEO · Los Ángeles" },
+    { initials: "AK", name: "Andrés Kim", role: "CTO · Zaragoza" },
+    { initials: "AW", name: "Ana Whitfield", role: "Operaciones de Almacén" },
+    { initials: "CV", name: "Carlos Vega", role: "Última Milla" },
+    { initials: "SR", name: "Sofía Ramos", role: "Logística Inversa" },
+    { initials: "VC", name: "Valentina Cruz", role: "Atención al Cliente" },
+    { initials: "MT", name: "Miguel Torres", role: "Comercial y Clientes" },
+  ],
+};
+
+// ---- View navigation ----
+function switchView(viewId) {
+  document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
+  document.querySelectorAll(".nav-item[data-view]").forEach((n) => n.classList.remove("active"));
+
+  const view = document.getElementById(`view-${viewId}`);
+  if (view) view.classList.add("active");
+
+  const navItem = document.querySelector(`.nav-item[data-view="${viewId}"]`);
+  if (navItem) navItem.classList.add("active");
+}
+
+function renderDashboard() {
+  // Live date
+  const now = new Date();
+  document.getElementById("live-date").textContent = now.toLocaleDateString("es-ES", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
 
-  document.querySelector("#refresh-button").addEventListener("click", loadDashboard);
-  document.querySelector("#new-article-button").addEventListener("click", openNewArticle);
-  document.querySelector("#new-movement-button").addEventListener("click", openMovement);
-  document.querySelector("#new-lot-button").addEventListener("click", () => elements.lotDialog.showModal());
-  document.querySelector("#movement-sku").addEventListener("change", loadLots);
-  document.querySelector("#movement-type").addEventListener("change", syncAdjustmentField);
-  elements.search.addEventListener("input", renderTable);
-  elements.articleForm.addEventListener("submit", saveArticle);
-  elements.movementForm.addEventListener("submit", saveMovement);
-  elements.lotForm.addEventListener("submit", saveLot);
-  document.querySelectorAll("[data-close]").forEach((button) => {
-    button.addEventListener("click", () => document.querySelector(`#${button.dataset.close}`).close());
-  });
+  // Department grid
+  const deptGrid = document.getElementById("dept-grid");
+  deptGrid.innerHTML = COMPANY_DATA.departments
+    .map(
+      (d) => `
+    <article class="dept-card">
+      <h3>${d.name}</h3>
+      <span class="dept-lead">${d.lead}</span>
+      <p>${d.desc}</p>
+    </article>`
+    )
+    .join("");
 
-  lucide.createIcons();
-  loadDashboard();
-});
+  // API status (try to connect)
+  checkApiStatus();
+}
+
+async function checkApiStatus() {
+  const banner = document.getElementById("api-status-banner");
+  const text = document.getElementById("api-status-text");
+  try {
+    await fetch(`${API_URL}/articles/`, { method: "HEAD" });
+    banner.className = "status-banner online";
+    banner.querySelector("svg").setAttribute("data-lucide", "cloud");
+    text.textContent = "Conectado correctamente a la API de inventario";
+    lucide.createIcons();
+  } catch {
+    banner.className = "status-banner";
+    banner.querySelector("svg").setAttribute("data-lucide", "cloud-off");
+    text.textContent = "API no disponible. El backoffice funciona con datos locales. Inicia la API en services/api.";
+    lucide.createIcons();
+  }
+}
+
+function renderCompanyView() {
+  const teamGrid = document.getElementById("team-grid");
+  teamGrid.innerHTML = COMPANY_DATA.team
+    .map(
+      (m) => `
+    <div class="team-card-bo">
+      <div class="avatar">${m.initials}</div>
+      <h4>${m.name}</h4>
+      <span>${m.role}</span>
+    </div>`
+    )
+    .join("");
+}
+
+// ---- Inventory (existing code enhanced) ----
 
 async function api(path, options = {}) {
   const response = await fetch(`${API_URL}${path}`, {
@@ -277,3 +336,51 @@ function escapeHtml(value) {
   node.textContent = String(value);
   return node.innerHTML;
 }
+
+// ---- Bootstrap ----
+window.addEventListener("DOMContentLoaded", () => {
+  Object.assign(elements, {
+    body: document.querySelector("#inventory-body"),
+    search: document.querySelector("#search-input"),
+    articleDialog: document.querySelector("#article-dialog"),
+    articleForm: document.querySelector("#article-form"),
+    movementDialog: document.querySelector("#movement-dialog"),
+    movementForm: document.querySelector("#movement-form"),
+    lotDialog: document.querySelector("#lot-dialog"),
+    lotForm: document.querySelector("#lot-form"),
+    toast: document.querySelector("#toast"),
+  });
+
+  // View navigation
+  document.querySelectorAll(".nav-item[data-view]").forEach((item) => {
+    item.addEventListener("click", (e) => {
+      e.preventDefault();
+      const view = item.dataset.view;
+      switchView(view);
+      if (view === "dashboard") renderDashboard();
+      if (view === "company") renderCompanyView();
+      if (view === "inventory") loadDashboard();
+    });
+  });
+
+  // Inventory events
+  document.querySelector("#refresh-button").addEventListener("click", loadDashboard);
+  document.querySelector("#new-article-button").addEventListener("click", openNewArticle);
+  document.querySelector("#new-movement-button").addEventListener("click", openMovement);
+  document.querySelector("#new-lot-button").addEventListener("click", () => elements.lotDialog.showModal());
+  document.querySelector("#movement-sku").addEventListener("change", loadLots);
+  document.querySelector("#movement-type").addEventListener("change", syncAdjustmentField);
+  elements.search.addEventListener("input", renderTable);
+  elements.articleForm.addEventListener("submit", saveArticle);
+  elements.movementForm.addEventListener("submit", saveMovement);
+  elements.lotForm.addEventListener("submit", saveLot);
+  document.querySelectorAll("[data-close]").forEach((button) => {
+    button.addEventListener("click", () => document.querySelector(`#${button.dataset.close}`).close());
+  });
+
+  lucide.createIcons();
+
+  // Start on dashboard view
+  switchView("dashboard");
+  renderDashboard();
+});

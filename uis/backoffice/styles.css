@@ -52,6 +52,94 @@ nav { display: grid; gap: 6px; margin-top: 46px; }
 .connection-dot.online { background: #7bc69f; box-shadow: 0 0 0 4px rgba(123, 198, 159, 0.12); }
 .connection-dot.offline { background: #e97560; }
 
+/* View switching */
+.view { display: none; }
+.view.active { display: block; }
+.nav-item { cursor: pointer; }
+.nav-item.active { color: #fff; background: #2a3530; }
+
+/* Dashboard cards */
+.dashboard-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 36px 0; }
+.dash-card {
+  padding: 22px 24px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 30px rgba(24, 32, 29, 0.05);
+}
+.dash-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.dash-card-header svg { color: var(--green); }
+.dash-label { color: var(--muted); font: 500 11px/1.2 "IBM Plex Mono", monospace; }
+.dash-value { display: block; font-size: 30px; line-height: 1; margin-bottom: 4px; }
+.dash-note { color: var(--muted); font-size: 13px; }
+
+/* Badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  background: var(--green-soft);
+  color: var(--green);
+  border-radius: 999px;
+  font: 500 12px/1 "IBM Plex Mono", monospace;
+}
+
+/* Department grid */
+.dept-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-top: 16px; }
+.dept-card {
+  padding: 18px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.dept-card h3 { font-size: 15px; margin-bottom: 4px; }
+.dept-card .dept-lead { color: var(--green); font-size: 12px; font-weight: 600; display: block; margin-bottom: 6px; }
+.dept-card p { color: var(--muted); font-size: 13px; line-height: 1.5; margin-bottom: 0; }
+
+/* Status banner */
+.status-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border-radius: var(--radius);
+  background: var(--coral-soft);
+  border: 1px solid var(--coral);
+}
+.status-banner.online { background: var(--green-soft); border-color: var(--green); }
+.status-banner svg { color: var(--coral); }
+.status-banner.online svg { color: var(--green); }
+.status-banner strong { display: block; }
+.status-banner span { font-size: 13px; color: var(--muted); }
+
+/* Team grid (backoffice) */
+.team-grid-bo { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-top: 16px; }
+.team-card-bo {
+  text-align: center;
+  padding: 20px 12px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.team-card-bo .avatar {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 10px;
+  background: var(--green);
+  color: #fff;
+  border-radius: 50%;
+  font: 700 14px "IBM Plex Mono", monospace;
+}
+.team-card-bo h4 { font-size: 14px; margin-bottom: 2px; }
+.team-card-bo span { color: var(--muted); font-size: 11px; }
+
+/* Info table */
+.info-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+.info-table td { padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 14px; }
+.info-table td:first-child { width: 200px; }
+
 main { min-height: 100vh; margin-left: 232px; padding: 38px clamp(24px, 4vw, 64px) 64px; }
 .topbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
 .eyebrow { margin: 0 0 8px; color: var(--green); font: 500 11px/1.2 "IBM Plex Mono", monospace; }

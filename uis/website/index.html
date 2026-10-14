@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TrackFlow · Logística de última milla</title>
+  <meta name="description" content="TrackFlow es una empresa de logística de última milla y gestión de almacenes. Almacenamos, preparamos y entregamos tus pedidos en EE. UU. y España.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+
+  <!-- NAV -->
+  <header class="header">
+    <div class="container header-inner">
+      <a class="logo" href="/">
+        <span class="logo-mark">TF</span>
+        <span class="logo-text">TrackFlow</span>
+      </a>
+      <nav class="nav" id="main-nav">
+        <a href="#about">La empresa</a>
+        <a href="#services">Servicios</a>
+        <a href="#global">Presencia</a>
+        <a href="#team">Equipo</a>
+        <a href="#contact" class="nav-cta">Contacto</a>
+      </nav>
+      <button class="menu-toggle" id="menu-toggle" aria-label="Abrir menú">
+        <i data-lucide="menu"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="container hero-grid">
+      <div class="hero-content">
+        <p class="hero-label">LOGÍSTICA DE ÚLTIMA MILLA</p>
+        <h1>Tu producto,<br>su puerta,<br><span class="accent">sin preocupaciones</span></h1>
+        <p class="hero-sub">
+          TrackFlow almacena tu inventario, prepara los pedidos, los envía a través de una red de transportistas y gestiona las devoluciones. Nosotros hacemos llegar tus productos a la puerta de tus clientes.
+        </p>
+        <div class="hero-stats">
+          <div class="stat">
+            <strong>130+</strong>
+            <span>Empleados</span>
+          </div>
+          <div class="stat">
+            <strong>9M€</strong>
+            <span>Facturación anual</span>
+          </div>
+          <div class="stat">
+            <strong>8</strong>
+            <span>Transportistas</span>
+          </div>
+        </div>
+        <a href="#contact" class="button primary">Habla con nosotros</a>
+      </div>
+      <div class="hero-visual">
+        <div class="hero-map">
+          <div class="map-pin lax">
+            <span>LAX</span>
+            <small>Los Ángeles</small>
+          </div>
+          <div class="map-pin zar">
+            <span>ZAZ</span>
+            <small>Zaragoza</small>
+          </div>
+          <div class="map-line"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ABOUT -->
+  <section id="about" class="section">
+    <div class="container">
+      <p class="section-label">SOBRE NOSOTROS</p>
+      <div class="about-grid">
+        <div>
+          <h2>Hacemos que la logística funcione para las marcas de e-commerce</h2>
+          <p class="lead">Fundada en 2009 en Los Ángeles, TrackFlow existe porque las marcas son buenas haciendo productos, pero no haciéndolos llegar a la puerta del cliente.</p>
+          <p>Operamos en dos mercados — Estados Unidos y España — con almacenes en Los Ángeles y Zaragoza. Gestionamos todo el ciclo: desde que llega un pedido hasta que se entrega o se devuelve. Para las marcas que trabajan con nosotros, la operación logística completa es responsabilidad nuestra.</p>
+          <div class="about-metrics">
+            <div class="about-metric">
+              <strong>2009</strong>
+              <span>Fundación</span>
+            </div>
+            <div class="about-metric">
+              <strong>2</strong>
+              <span>Almacenes</span>
+            </div>
+            <div class="about-metric">
+              <strong>2</strong>
+              <span>Países</span>
+            </div>
+            <div class="about-metric">
+              <strong>70</strong>
+              <span>Operarios</span>
+            </div>
+          </div>
+        </div>
+        <div class="about-quote">
+          <blockquote>
+            "Para las marcas que trabajan con TrackFlow, toda la operación logística — desde el momento en que se hace un pedido hasta el momento en que se entrega o se devuelve — es responsabilidad de TrackFlow."
+          </blockquote>
+          <div class="quote-author">
+            <strong>Thomas Harry</strong>
+            <span>Fundador & CEO</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SERVICES -->
+  <section id="services" class="section alt">
+    <div class="container">
+      <p class="section-label">SERVICIOS</p>
+      <h2 class="section-title">Cubrimos toda la cadena logística</h2>
+      <div class="services-grid">
+        <article class="service-card">
+          <div class="service-icon"><i data-lucide="warehouse"></i></div>
+          <h3>Almacenamiento</h3>
+          <p>Gestionamos tu inventario en nuestros almacenes de Los Ángeles y Zaragoza con sistemas de control de stock en tiempo real.</p>
+        </article>
+        <article class="service-card">
+          <div class="service-icon"><i data-lucide="package"></i></div>
+          <h3>Preparación de pedidos</h3>
+          <p>Recibimos, recolectamos y empaquetamos cada pedido. Preparación optimizada con estándares de calidad para cada cliente.</p>
+        </article>
+        <article class="service-card">
+          <div class="service-icon"><i data-lucide="truck"></i></div>
+          <h3>Envío y última milla</h3>
+          <p>Coordinamos la entrega con 8 transportistas — UPS, FedEx, DHL, MRW, SEUR y operadores locales en ambos países.</p>
+        </article>
+        <article class="service-card">
+          <div class="service-icon"><i data-lucide="rotate-ccw"></i></div>
+          <h3>Logística inversa</h3>
+          <p>Gestionamos devoluciones de principio a fin: aprobación, recogida, inspección, reacondicionamiento o desecho.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- GLOBAL -->
+  <section id="global" class="section">
+    <div class="container">
+      <p class="section-label">PRESENCIA GLOBAL</p>
+      <h2 class="section-title">Dos países, una operación</h2>
+      <div class="global-grid">
+        <div class="global-card lax-card">
+          <div class="global-flag">🇺🇸</div>
+          <h3>Los Ángeles · Sede central</h3>
+          <ul>
+            <li><strong>Almacén</strong> — Sistema SGA comercial</li>
+            <li><strong>CEO</strong> — Thomas Harry</li>
+            <li><strong>Equipo</strong> — Operaciones, comercial y CX</li>
+            <li><strong>Mercado</strong> — Estados Unidos</li>
+          </ul>
+        </div>
+        <div class="global-card zar-card">
+          <div class="global-flag">🇪🇸</div>
+          <h3>Zaragoza · Hub tecnológico</h3>
+          <ul>
+            <li><strong>Almacén</strong> — Sistema basado en hoja de cálculo avanzada</li>
+            <li><strong>CTO</strong> — Andrés Kim</li>
+            <li><strong>Equipo</strong> — Tecnología, data e ingeniería</li>
+            <li><strong>Mercado</strong> — España y Europa</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TEAM -->
+  <section id="team" class="section alt">
+    <div class="container">
+      <p class="section-label">EQUIPO DIRECTIVO</p>
+      <h2 class="section-title">Las personas detrás de TrackFlow</h2>
+      <div class="team-grid">
+        <div class="team-card">
+          <div class="team-avatar">TH</div>
+          <h4>Thomas Harry</h4>
+          <span>CEO · Los Ángeles</span>
+        </div>
+        <div class="team-card">
+          <div class="team-avatar">AK</div>
+          <h4>Andrés Kim</h4>
+          <span>CTO · Zaragoza</span>
+        </div>
+        <div class="team-card">
+          <div class="team-avatar">AW</div>
+          <h4>Ana Whitfield</h4>
+          <span>Operaciones de Almacén</span>
+        </div>
+        <div class="team-card">
+          <div class="team-avatar">CV</div>
+          <h4>Carlos Vega</h4>
+          <span>Última Milla</span>
+        </div>
+        <div class="team-card">
+          <div class="team-avatar">SR</div>
+          <h4>Sofía Ramos</h4>
+          <span>Logística Inversa</span>
+        </div>
+        <div class="team-card">
+          <div class="team-avatar">VC</div>
+          <h4>Valentina Cruz</h4>
+          <span>Atención al Cliente</span>
+        </div>
+        <div class="team-card">
+          <div class="team-avatar">MT</div>
+          <h4>Miguel Torres</h4>
+          <span>Comercial y Clientes</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTACT -->
+  <section id="contact" class="section">
+    <div class="container contact-grid">
+      <div>
+        <p class="section-label">CONTACTO</p>
+        <h2 class="section-title">Hablemos de logística</h2>
+        <p>Descubre cómo TrackFlow puede gestionar tu operación logística en Estados Unidos y España.</p>
+        <div class="contact-info">
+          <div class="contact-item">
+            <i data-lucide="map-pin"></i>
+            <div>
+              <strong>Los Ángeles</strong><br>
+              <small>Sede central</small>
+            </div>
+          </div>
+          <div class="contact-item">
+            <i data-lucide="map-pin"></i>
+            <div>
+              <strong>Zaragoza</strong><br>
+              <small>Oficina tecnológica</small>
+            </div>
+          </div>
+          <div class="contact-item">
+            <i data-lucide="building"></i>
+            <div>
+              <strong>TrackFlow Tech</strong><br>
+              <small>Unidad de innovación interna</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <form class="contact-form" id="contact-form">
+        <label>
+          <span>Nombre</span>
+          <input type="text" placeholder="Tu nombre" required>
+        </label>
+        <label>
+          <span>Email</span>
+          <input type="email" placeholder="tu@email.com" required>
+        </label>
+        <label>
+          <span>Mensaje</span>
+          <textarea rows="4" placeholder="Cuéntanos sobre tu proyecto..." required></textarea>
+        </label>
+        <button class="button primary" type="submit">Enviar mensaje</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <span class="logo-mark">TF</span>
+        <span class="logo-text">TrackFlow</span>
+        <p>Logística de última milla y gestión de almacenes.</p>
+      </div>
+      <div class="footer-links">
+        <div>
+          <strong>Servicios</strong>
+          <a href="#services">Almacenamiento</a>
+          <a href="#services">Preparación</a>
+          <a href="#services">Envíos</a>
+          <a href="#services">Devoluciones</a>
+        </div>
+        <div>
+          <strong>Presencia</strong>
+          <span>🇺🇸 Los Ángeles</span>
+          <span>🇪🇸 Zaragoza</span>
+        </div>
+      </div>
+      <div class="footer-copy">
+        <span>© 2024 TrackFlow — AI Engineering · 4Geeks Academy</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
