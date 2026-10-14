@@ -3,7 +3,8 @@
 """
 TrackFlow API — Entry point.
 
-FastAPI application that serves the Incident Manager and future services.
+FastAPI application that serves the Incident Manager, Inventory Manager,
+and future services.
 """
 
 from fastapi import FastAPI
@@ -12,6 +13,9 @@ from fastapi.staticfiles import StaticFiles
 
 from app.db.database import Base, engine
 from app.routers.incidents import router as incidents_router
+
+# Import inventory routers
+from app.routers import articles, inventory
 
 # ── Create tables on startup (dev mode; production should use Alembic) ──────
 
@@ -45,6 +49,8 @@ app.mount("/ui", StaticFiles(directory="../../uis", html=True), name="ui")
 # ── Routers ─────────────────────────────────────────────────────────────────
 
 app.include_router(incidents_router)
+app.include_router(articles.router)
+app.include_router(inventory.router)
 
 
 # ── Health check ─────────────────────────────────────────────────────────────
