@@ -110,7 +110,7 @@ nav { display: grid; gap: 6px; margin-top: 46px; }
 .status-banner svg { color: var(--coral); }
 .status-banner.online svg { color: var(--green); }
 .status-banner strong { display: block; }
-.status-banner span { font-size: 13px; color: var(--muted); }
+.status-banner span { font-size: 13px; color: #4d5953; }
 
 /* Team grid (backoffice) */
 .team-grid-bo { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-top: 16px; }

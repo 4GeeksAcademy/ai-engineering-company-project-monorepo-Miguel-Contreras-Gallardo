@@ -218,7 +218,7 @@ h1, h2, h3, h4, p { margin-top: 0; }
   font-size: 24px;
   color: var(--green);
 }
-.about-metric span { color: var(--muted); font-size: 12px; }
+.about-metric span { color: #4d5953; font-size: 12px; }
 .about-quote blockquote {
   margin: 0 0 16px;
   padding: 24px;
@@ -404,7 +404,7 @@ h1, h2, h3, h4, p { margin-top: 0; }
 .footer-copy {
   padding-top: 24px;
   border-top: 1px solid #313b37;
-  color: #69716d;
+  color: #8f9a93;
   font-size: 12px;
 }
 
