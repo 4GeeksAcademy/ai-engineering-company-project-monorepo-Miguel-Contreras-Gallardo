@@ -76,13 +76,13 @@ async function checkApiStatus() {
     banner.className = "status-banner online";
     banner.querySelector("svg").setAttribute("data-lucide", "cloud");
     text.textContent = "Conectado correctamente a la API de inventario";
-    lucide.createIcons();
+    refreshIcons();
   } catch {
     clearTimeout(timeout);
     banner.className = "status-banner";
     banner.querySelector("svg").setAttribute("data-lucide", "cloud-off");
     text.textContent = "API no disponible. El backoffice funciona con datos locales. Inicia la API en services/api.";
-    lucide.createIcons();
+    refreshIcons();
   }
 }
 
@@ -186,7 +186,7 @@ function renderTable() {
 
   elements.body.querySelectorAll("[data-edit]").forEach((button) => button.addEventListener("click", () => openEditArticle(button.dataset.edit)));
   elements.body.querySelectorAll("[data-delete]").forEach((button) => button.addEventListener("click", () => deactivateArticle(button.dataset.delete)));
-  lucide.createIcons();
+  refreshIcons();
 }
 
 function openNewArticle() {
@@ -382,7 +382,7 @@ window.addEventListener("DOMContentLoaded", () => {
     button.addEventListener("click", () => document.querySelector(`#${button.dataset.close}`).close());
   });
 
-  lucide.createIcons();
+  refreshIcons();
 
   // Start on dashboard view
   switchView("dashboard");
