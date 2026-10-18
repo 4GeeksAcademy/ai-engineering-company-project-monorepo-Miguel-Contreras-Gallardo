@@ -24,6 +24,40 @@
 | **Escritorio** | 92 | 95 | 96 | 82 |
 | **Móvil** | 71 | 95 | 96 | 82 |
 
+---
+
+## 2. Resultados tras correcciones (18 oct 2026)
+
+Ver `REPORT.md` para el análisis detallado.
+
+### 2.1 Website corporativo
+
+| Modo | Rendimiento | Accesibilidad | Buenas Prácticas | SEO |
+|---|---|---|---|---|
+| **Escritorio** | 92 | **100** 🎯 | 96 | **100** 🎯 |
+| **Móvil** | **97** 🎯 | **100** 🎯 | 96 | **100** 🎯 |
+
+### 2.2 Backoffice
+
+| Modo | Rendimiento | Accesibilidad | Buenas Prácticas | SEO |
+|---|---|---|---|---|
+| **Escritorio** | 90 | **100** 🎯 | 96 | 63\* |
+| **Móvil** | **93** 🎯 | **100** 🎯 | 96 | 63\* |
+
+> \* La caída de SEO en backoffice es **intencionada**: se añadió `robots.txt` con `Disallow: /` porque el panel de operaciones **no debe ser indexado** por buscadores.
+
+### 2.3 Resumen de impacto
+
+| Corrección | Puntos ganados |
+|------------|:--------------:|
+| Contraste de color (WCAG AA) | +5 a +13 en Accessibility |
+| `<main>` landmark + headings | A11Y 87→100 website |
+| CLS min-heights + Lucide placeholders | Performance móvil backoffice **71→93 (+22)** |
+| robots.txt + meta description | SEO website **91→100** |
+| AbortController API check | Best Practices sin errores |
+
+---
+
 ### 1.3 Observaciones
 
 - **Website**: Rendimiento excelente en ambos modos. La puntuación de SEO (91) se debe a que `robots.txt` y `llms.txt` existen pero Lighthouse detecta que podrían mejorarse las meta-etiquetas sociales (Open Graph / Twitter Cards).
