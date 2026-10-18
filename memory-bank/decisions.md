@@ -54,7 +54,44 @@
 
 ---
 
-## ADR-005: Gestor de Incidencias — arquitectura y trazabilidad
+## ADR-005: Refactorización de inicialización de iconos Lucide
+
+| Campo | Valor |
+|---|---|
+| **Fecha** | 2026-10-18 |
+| **Estado** | ✅ Aceptada |
+| **Contexto** | Ambos frontends llamaban manualmente a `lucide.createIcons()` en 6 lugares distintos (app.js del website + app.js del backoffice). Era fácil olvidar una llamada y los iconos no se renderizaban. |
+| **Decisión** | Extraer un helper compartido `uis/shared/lucide-helper.js` que: (1) se auto-ejecuta en `DOMContentLoaded`, (2) expone `window.refreshIcons()` para actualizaciones dinámicas, (3) se carga via `<script defer>` tras Lucide y antes de cada app.js. |
+| **Consecuencias** | + Elimina duplicación de código. + Centraliza la inicialización. - Añade un archivo y una petición HTTP adicional. |
+| **Alternativas** | No refactorizar (mantener 6 llamadas directas). Usar MutationObserver (más complejo, overhead innecesario para este caso). |
+
+---
+
+## ADR-006: Estrategia de carga de Google Fonts
+
+| Campo | Valor |
+|---|---|
+| **Fecha** | 2026-10-18 |
+| **Estado** | ✅ Aceptada |
+| **Contexto** | Lighthouse reportaba render-blocking por Google Fonts. Se intentó usar `media="print"` con `onload="this.media='all'"`, pero esto regresó FCP y Performance. |
+| **Decisión** | Mantener el `<link rel="stylesheet">` original con `display=swap` en la URL de Google Fonts. El patrón `media="print"` introduce latencia extra porque el navegador descarga la fuente dos veces (una con media="print" aplicada y otra al cambiar a media="all"). |
+| **Consecuencias** | + FCP se recupera. + Sin regresión de rendimiento. - Las fuentes siguen siendo un recurso render-blocking, pero con `display=swap` el texto se muestra con fuente de respaldo inmediatamente. |
+
+---
+
+## ADR-007: Comprobación de estado de API con AbortController
+
+| Campo | Valor |
+|---|---|
+| **Fecha** | 2026-10-18 |
+| **Estado** | ✅ Aceptada |
+| **Contexto** | El backoffice hacía un fetch HEAD a localhost:8000 para comprobar el estado de la API. Cuando la API no está en ejecución (entornos de auditoría, desarrollo frontend aislado), se registraba un `ERR_CONNECTION_REFUSED` en la consola que Lighthouse penalizaba en Best Practices. |
+| **Decisión** | Envolver la petición en un `AbortController` con timeout de 1.5s. Si la API no responde, se aborta la petición antes de que el navegador registre el error de conexión. |
+| **Consecuencias** | + Cero errores de consola cuando la API no está disponible. + Timeout rápido (1.5s) en lugar de esperar el timeout nativo del navegador (~30s). |
+
+---
+
+## ADR-008: Gestor de Incidencias — arquitectura y trazabilidad
 
 | Campo | Valor |
 |---|---|
