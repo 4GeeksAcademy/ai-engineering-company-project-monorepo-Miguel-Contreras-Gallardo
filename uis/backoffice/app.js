@@ -68,13 +68,17 @@ function renderDashboard() {
 async function checkApiStatus() {
   const banner = document.getElementById("api-status-banner");
   const text = document.getElementById("api-status-text");
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 1500);
   try {
-    await fetch(`${API_URL}/articles/`, { method: "HEAD" });
+    await fetch(`${API_URL}/articles/`, { method: "HEAD", signal: controller.signal });
+    clearTimeout(timeout);
     banner.className = "status-banner online";
     banner.querySelector("svg").setAttribute("data-lucide", "cloud");
     text.textContent = "Conectado correctamente a la API de inventario";
     lucide.createIcons();
   } catch {
+    clearTimeout(timeout);
     banner.className = "status-banner";
     banner.querySelector("svg").setAttribute("data-lucide", "cloud-off");
     text.textContent = "API no disponible. El backoffice funciona con datos locales. Inicia la API en services/api.";
