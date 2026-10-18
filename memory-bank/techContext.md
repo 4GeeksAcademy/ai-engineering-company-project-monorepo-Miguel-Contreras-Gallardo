@@ -52,7 +52,8 @@ app/
 ## Infraestructura Docker
 
 El proyecto incluye un stack Docker completo para desarrollo local y producción:
-- **docker-compose.yml** en raíz del repo
+- **docker-compose.yml** en raíz del repo (servicios: `postgres`, `api`, `uis`)
+- `backend/Dockerfile` — Dockerfile alternativo independiente (Python 3.13-slim + uv)
 - Red propia `trackflow-net` para comunicación entre contenedores
 - Volumen `trackflow_pgdata` para persistencia de PostgreSQL
 
@@ -62,6 +63,12 @@ El proyecto incluye un stack Docker completo para desarrollo local y producción
 | PostgreSQL 16 | `trackflow-db` | 5432 | Imagen oficial `postgres:16-alpine` |
 | API FastAPI | `trackflow-api` | 8000 | `services/Dockerfile` (Python 3.12-slim + uv) |
 | UIs (website + backoffice) | `trackflow-uis` | 3000, 3001 | `uis/Dockerfile` (Node 20-alpine + serve) |
+
+### Alternativos
+| Archivo | Propósito |
+|---|---|
+| `backend/Dockerfile` | Dockerfile alternativo para backend (Python 3.13-slim + uv) |
+| `.env.example` | Plantilla de variables de entorno (11 variables documentadas) |
 
 ### Despliegue en producción
 ```bash

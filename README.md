@@ -51,10 +51,13 @@ You are building **one company** across many milestones and projects. Each top-l
 
 ## Current status of the template
 
-> 💡 This repository currently provides a **base folder structure and documentation skeleton** only. It does not include runnable apps or global scripts yet.
+> 💡 This repository currently provides a **base folder structure and documentation skeleton** with some runnable services. See the [services](./services/README.md) folder for details.
 >
 > - `CONTEXT.md` is a placeholder and must be replaced with your assigned company context.
-> - There is no root `AGENTS.md` yet.
+> - `docker-compose.yml` orchestrates PostgreSQL 16 + FastAPI backend + UI frontends.
+> - `backend/Dockerfile` is an alternative standalone Dockerfile for the backend (Python 3.13-slim + uv).
+> - `.env.example` documents all required environment variables; copy it to `.env` and fill in values.
+> - `AGENTS.md` exists with session rules for AI assistants.
 > - Shared package metadata exists in `packages/shared/package.json` (`@repo/shared-types`), but no workspace runner is configured at root.
 
 ---

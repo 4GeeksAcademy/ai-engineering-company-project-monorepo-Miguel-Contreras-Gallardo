@@ -51,10 +51,13 @@ Estás construyendo **una sola empresa** a lo largo de muchos hitos y proyectos.
 
 ## Estado actual de la plantilla
 
-> 💡 Actualmente el repositorio ofrece solo una **estructura base de carpetas y documentación**. Todavía no incluye aplicaciones ejecutables ni scripts globales en la raíz.
+> 💡 Actualmente el repositorio ofrece una **estructura base de carpetas y documentación** con algunos servicios ejecutables. Consulta la carpeta [services](./services/README.md) para más detalles.
 >
 > - `CONTEXT.md` es un placeholder y debe sustituirse por el contexto de la empresa asignada.
-> - No existe todavía un `AGENTS.md` en la raíz.
+> - `docker-compose.yml` orquesta PostgreSQL 16 + backend FastAPI + frontends UI.
+> - `backend/Dockerfile` es un Dockerfile alternativo independiente para el backend (Python 3.13-slim + uv).
+> - `.env.example` documenta todas las variables de entorno necesarias; cópialo a `.env` y completa los valores.
+> - `AGENTS.md` existe con reglas de sesión para asistentes IA.
 > - Existe metadata del paquete compartido en `packages/shared/package.json` (`@repo/shared-types`), pero aún no hay runner de workspace en raíz.
 
 ---

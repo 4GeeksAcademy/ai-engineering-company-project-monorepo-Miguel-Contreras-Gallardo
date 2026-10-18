@@ -143,7 +143,30 @@ Crear infraestructura Docker completa + sitio web corporativo + backoffice mejor
 
 ---
 
-## 📈 KPIs del Proyecto
+## � Sesión 3 — 2026-10-18
+
+### Objetivo
+Crear Dockerfile alternativo para el backend, archivo `.env.example` documentado, y actualizar README + memory-bank.
+
+### Logros
+- [x] `backend/Dockerfile` — Python 3.13-slim + uv + Uvicorn (alternativo)
+- [x] `backend/.dockerignore` — Excluye `__pycache__`, `.env`, `.venv/`, etc.
+- [x] `.env.example` — Documenta 11 variables de entorno (PostgreSQL, API, Frontend, Testing)
+- [x] `.gitignore` verificado: `.env` ignorado, `.env.example` NO ignorado ✅
+- [x] `README.md` y `README.es.md` actualizados con referencias a `backend/` y `.env.example`
+- [x] `active-context.md` actualizado con la sesión actual
+
+### Pendientes actualizados
+| Prioridad | Tarea | Categoría |
+|---|---|---|
+| 🟢 P2 | Pipeline de ingesta de pedidos | Datos |
+| 🟢 P2 | Base de conocimiento para RAG (CX) | IA |
+| 🔵 P3 | Agente orquestador multi-departamento | Visión final |
+| 🟢 P2 | Restricción roles DB solo INSERT/SELECT (T03) | Backend |
+
+---
+
+## �📈 KPIs del Proyecto
 
 | Indicador | Valor | Fecha |
 |---|---|---|
