@@ -29,12 +29,14 @@ La API **no expone rutas de autenticación** (registro, login, restablecimiento 
 
 ## Resumen de Resultados
 
-| Estado | Cantidad |
-|--------|----------|
-| 🟢 Ya serializado | 19 |
-| 🟡 Parcialmente serializado | 3 |
-| 🔴 Sin serializar | 1 |
-| **Total endpoints** | **23** |
+| Estado | Antes | Después |
+|--------|:-----:|:-------:|
+| 🟢 Ya serializado | 19 | **23** |
+| 🟡 Parcialmente serializado | 3 | **0** |
+| 🔴 Sin serializar | 1 | **0** |
+| **Total endpoints** | **23** | **23** |
+
+✅ **Todos los endpoints están correctamente serializados tras la Fase 2.**
 
 ---
 
@@ -44,10 +46,10 @@ La API **no expone rutas de autenticación** (registro, login, restablecimiento 
 
 | # | Método | Ruta | Propósito | `response_model` | ¿Qué devuelve realmente? | Estado |
 |---|--------|------|-----------|------------------|--------------------------|--------|
-| 1 | `GET` | `/` | Health check | ❌ No tiene | `dict` crudo: `{"status": "ok", "service": "trackflow-api", "version": "0.1.0"}` | � |
-| 2 | `GET` | `/healthz` | Health check simple | ❌ No tiene | `dict` crudo: `{"status": "ok"}` | 🟡 |
+| 1 | `GET` | `/` | Health check | ✅ `HealthResponse` | Instancia de `HealthResponse` | 🟢 |
+| 2 | `GET` | `/healthz` | Health check simple | ✅ `HealthResponse` | Instancia de `HealthResponse` | 🟢 |
 
-> **Análisis:** Endpoints de salud simples con datos fijos y predecibles. El riesgo de no tener `response_model` es bajo, pero aplicar un esquema `HealthResponse` aportaría consistencia y mejor documentación en OpenAPI.
+> **Nota:** Se creó el esquema `HealthResponse` en `app/schemas/health.py` con campos `status`, `service` y `version`.
 
 ---
 
@@ -56,32 +58,18 @@ La API **no expone rutas de autenticación** (registro, login, restablecimiento 
 | # | Método | Ruta | Propósito | `response_model` | ¿Qué devuelve realmente? | Estado |
 |---|--------|------|-----------|------------------|--------------------------|--------|
 | 3 | `POST` | `/api/v1/incidents` | Crear incidencia (RF-01) | ✅ `IncidentResponse` | ORM `Incident` → Pydantic (`from_attributes=True`) | 🟢 |
-| 4 | `GET` | `/api/v1/incidents` | Listar incidencias (RF-06) | ⚠️ **`dict`** | `dict` con `items: list[IncidentResponse]`, `total`, `limit`, `offset` | 🟡 |
+| 4 | `GET` | `/api/v1/incidents` | Listar incidencias (RF-06) | ✅ `PaginatedIncidentResponse` | `PaginatedIncidentResponse` con `items: list[IncidentResponse]` + paginación | 🟢 |
 | 5 | `GET` | `/api/v1/incidents/stats` | Estadísticas de incidencias | ✅ `IncidentStats` | El servicio devuelve `dict`, pero FastAPI lo valida contra `IncidentStats` | 🟢 |
-| 6 | `GET` | `/api/v1/incidents/open-by-severity` | Incidencias abiertas por severidad | ❌ **No tiene** | `dict` crudo del servicio: `{"total_open": int, "by_priority": dict}` | 🔴 |
+| 6 | `GET` | `/api/v1/incidents/open-by-severity` | Incidencias abiertas por severidad | ✅ `OpenBySeverityResponse` | `OpenBySeverityResponse` con `total_open` y `by_priority` | 🟢 |
 | 7 | `GET` | `/api/v1/incidents/{incident_id}` | Obtener detalle (RF-06) | ✅ `IncidentResponse` | ORM `Incident` → Pydantic (`from_attributes=True`) | 🟢 |
 | 8 | `PATCH` | `/api/v1/incidents/{incident_id}` | Actualizar incidencia (RF-04+05) | ✅ `IncidentResponse` | ORM `Incident` → Pydantic (`from_attributes=True`) | 🟢 |
 | 9 | `GET` | `/api/v1/incidents/{incident_id}/audit` | Historial de auditoría (RF-05) | ✅ `list[AuditLogResponse]` | ORM `IncidentAuditLog` → Pydantic (`from_attributes=True`) | 🟢 |
 | 10 | `POST` | `/api/v1/incidents/{incident_id}/assign` | Asignar incidencia a área (RF-03) | ✅ `IncidentResponse` | ORM `Incident` → Pydantic (`from_attributes=True`) | 🟢 |
 | 11 | `POST` | `/api/v1/incidents/{incident_id}/transition` | Transicionar estado (RF-04) | ✅ `IncidentResponse` | ORM `Incident` → Pydantic (`from_attributes=True`) | 🟢 |
 
-> **Análisis detallado:**
->
-> **Endpoint 4 — `GET /api/v1/incidents` (🟡):** Usa `response_model=dict`, que es demasiado genérico. Aunque internamente construye los `items` con `IncidentResponse.model_validate(i)`, el contrato OpenAPI mostrará solo `dict` sin estructura. **Recomendación:** Crear un esquema `PaginatedIncidentResponse` con campos tipados:
-> ```python
-> class PaginatedIncidentResponse(BaseModel):
->     items: list[IncidentResponse]
->     total: int
->     limit: int
->     offset: int
-> ```
->
-> **Endpoint 6 — `GET /api/v1/incidents/open-by-severity` (🔴):** Carece por completo de `response_model`. El servicio devuelve un `dict` Python con `total_open` y `by_priority`. **Riesgo:** cambios en el servicio pueden alterar la respuesta sin que el contrato API lo refleje. **Recomendación:** Crear esquema:
-> ```python
-> class OpenBySeverityResponse(BaseModel):
->     total_open: int
->     by_priority: dict[str, int]
-> ```
+> **Cambios realizados en Fase 2:**
+> - **Endpoint 4:** `response_model=dict` → `response_model=PaginatedIncidentResponse` (nuevo esquema con `items`, `total`, `limit`, `offset`).
+> - **Endpoint 6:** Sin `response_model` → `response_model=OpenBySeverityResponse` (nuevo esquema con `total_open`, `by_priority`).
 
 ---
 
@@ -119,32 +107,41 @@ La API **no expone rutas de autenticación** (registro, login, restablecimiento 
 
 | Categoría | 🟢 Ya serializado | 🟡 Parcialmente serializado | 🔴 Sin serializar | Total |
 |-----------|:-----------------:|:---------------------------:|:------------------:|:-----:|
-| Health | 0 | 2 | 0 | 2 |
-| Incidencias | 7 | 1 | 1 | 9 |
+| Health | 2 | 0 | 0 | 2 |
+| Incidencias | 9 | 0 | 0 | 9 |
 | Artículos | 8 | 0 | 0 | 8 |
 | Inventario | 4 | 0 | 0 | 4 |
-| **Total** | **19** | **3** | **1** | **23** |
+| **Total** | **23** | **0** | **0** | **23** |
 
 ---
 
-## 🏁 Acciones Recomendadas
+## ✅ Estado Final — Fase 2 Completada
 
-### Prioridad Alta — 🔴 Sin serializar
+Todos los endpoints están correctamente serializados. Los cambios realizados:
 
-| Endpoint | Acción |
+| Endpoint | Cambio |
 |----------|--------|
-| `GET /api/v1/incidents/open-by-severity` | Añadir `response_model=OpenBySeverityResponse` con un esquema Pydantic que tipifique `total_open` y `by_priority`. |
+| `GET /` | Añadido `response_model=HealthResponse` |
+| `GET /healthz` | Añadido `response_model=HealthResponse` |
+| `GET /api/v1/incidents` | `response_model=dict` → `response_model=PaginatedIncidentResponse` |
+| `GET /api/v1/incidents/open-by-severity` | Sin `response_model` → `response_model=OpenBySeverityResponse` |
 
-### Prioridad Media — 🟡 Parcialmente serializado
+### Esquemas creados
 
-| Endpoint | Acción |
-|----------|--------|
-| `GET /api/v1/incidents` | Reemplazar `response_model=dict` por `PaginatedIncidentResponse` con campos tipados. |
-| `GET /` | Crear `HealthResponse` para consistencia y documentación OpenAPI. |
-| `GET /healthz` | Crear `HealthResponse` o reutilizar el mismo esquema. |
+| Esquema | Archivo | Campos |
+|---------|---------|--------|
+| `HealthResponse` | `app/schemas/health.py` | `status`, `service`, `version` |
+| `PaginatedIncidentResponse` | `app/schemas/incident.py` | `items: list[IncidentResponse]`, `total`, `limit`, `offset` |
+| `OpenBySeverityResponse` | `app/schemas/incident.py` | `total_open`, `by_priority: dict[str, int]` |
 
-### Consideraciones Generales
+### Decisiones de serialización documentadas
 
-- **IncidentResponse** incluye `audit_log: list[AuditLogResponse]` que se carga con `lazy="selectin"`. Esto puede generar consultas N+1 en listados. Se recomienda revisar si el audit log debe incluirse siempre en las respuestas de detalle o si sería mejor cargarlo bajo demanda.
-- Todos los esquemas Pydantic usan `model_config = {"from_attributes": True}` correctamente para la serialización desde ORM.
-- No se detectan fugas de campos sensibles (contraseñas, tokens, etc.) porque no existen modelos de usuario ni auth en la API actual.
+- **IncidentResponse** incluye `audit_log: list[AuditLogResponse]` (objeto anidado completo) porque el cliente de detalle de incidencia necesita ver el historial completo. Se carga con `lazy="selectin"` — tener en cuenta posible N+1 en listados.
+- Los endpoints de escritura (`POST`, `PUT`, `PATCH`) usan esquemas de entrada separados (`IncidentCreate`, `IncidentUpdate`, `IncidentAssign`, `IncidentTransition`) que solo aceptan los campos modificables, sin reutilizar el esquema de respuesta como entrada.
+- No se exponen claves foráneas en bruto: los modelos ORM se serializan a través de esquemas Pydantic con `from_attributes=True`.
+- No hay rutas de autenticación en la API actual.
+
+### Consideraciones futuras
+
+- Si se implementan rutas de auth, crear esquemas de respuesta específicos (`AuthResponse`, `UserPublic`) que nunca incluyan `hashed_password`.
+- Para login/registro, valorar si el email debe incluirse en la respuesta o si basta con un token. `GET /auth/me` sí puede devolver el email del propio llamante.

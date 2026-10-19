@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.db.database import Base, engine
 from app.routers.incidents import router as incidents_router
+from app.schemas.health import HealthResponse
 
 # Import inventory routers
 from app.routers import articles, inventory
@@ -55,11 +56,11 @@ app.include_router(inventory.router)
 
 # ── Health check ─────────────────────────────────────────────────────────────
 
-@app.get("/", tags=["health"])
+@app.get("/", response_model=HealthResponse, tags=["health"])
 def health_check():
     return {"status": "ok", "service": "trackflow-api", "version": "0.1.0"}
 
 
-@app.get("/healthz", tags=["health"])
+@app.get("/healthz", response_model=HealthResponse, tags=["health"])
 def healthz():
-    return {"status": "ok"}
+    return HealthResponse(status="ok", service="trackflow-api", version="0.1.0")
