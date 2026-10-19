@@ -219,6 +219,26 @@ class IncidentListParams(BaseModel):
     offset: int = Field(0, ge=0)
 
 
+# ── Paginated list response ──────────────────────────────────────────────────
+
+class PaginatedIncidentResponse(BaseModel):
+    """Response envelope for the paginated incident list endpoint."""
+
+    items: list["IncidentResponse"]
+    total: int
+    limit: int
+    offset: int
+
+
+# ── Open-by-severity ─────────────────────────────────────────────────────────
+
+class OpenBySeverityResponse(BaseModel):
+    """Response for the open-by-severity dashboard widget."""
+
+    total_open: int
+    by_priority: dict[str, int]
+
+
 # ── Stats ────────────────────────────────────────────────────────────────────
 
 class IncidentStats(BaseModel):
