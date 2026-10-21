@@ -8,9 +8,12 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.db.base import Base
+from app.db.database import Base as IncidentBase
+from app.models.audit_log import IncidentAuditLog
+from app.models.incident import Incident
 from app.db.models import Article, Lot, Movement, Warehouse
 from app.main import create_app
-from app.routers import articles, inventory
+from app.routers import articles, incidents, inventory
 
 
 @pytest.fixture()
@@ -32,6 +35,7 @@ def inventory_env():
 
     event.listen(Movement, "before_insert", assign_sequence)
     Base.metadata.create_all(engine)
+    IncidentBase.metadata.create_all(engine)
     session_factory = sessionmaker(bind=engine, expire_on_commit=False)
 
     with session_factory() as session:
@@ -53,12 +57,14 @@ def inventory_env():
     app = create_app()
     app.dependency_overrides[articles.get_db] = override_db
     app.dependency_overrides[inventory.get_db] = override_db
+    app.dependency_overrides[incidents.get_db] = override_db
 
     with TestClient(app) as client:
         yield SimpleNamespace(client=client, session_factory=session_factory)
 
     event.remove(Movement, "before_insert", assign_sequence)
     Base.metadata.drop_all(engine)
+    IncidentBase.metadata.drop_all(engine)
     engine.dispose()
 
 

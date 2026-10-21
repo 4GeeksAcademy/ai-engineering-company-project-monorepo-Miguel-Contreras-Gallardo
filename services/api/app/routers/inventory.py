@@ -21,8 +21,13 @@ from app.services.inventory import (
     query_stock,
     register_movement,
 )
+from app.services.response_cache import database_scope, get_or_set, invalidate
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
+
+
+def _invalidate_inventory_aggregates(db: Session) -> None:
+    invalidate(f"inventory:reorder:{database_scope(db)}")
 
 
 def get_db():
@@ -55,6 +60,7 @@ def create_movement(payload: MovementRegister, db: Session = Depends(get_db)):
             request_key=payload.request_key,
         )
         db.commit()
+        _invalidate_inventory_aggregates(db)
         return result
     except ResourceNotFound as e:
         db.rollback()
@@ -124,4 +130,5 @@ def get_stock(
 
 @router.get("/reorder", response_model=ReorderResponse)
 def reorder_signal(db: Session = Depends(get_db)):
-    return get_reorder_items(db)
+    key = f"inventory:reorder:{database_scope(db)}"
+    return get_or_set(key, lambda: get_reorder_items(db))

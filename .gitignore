@@ -21,3 +21,11 @@ Thumbs.db
 # Environment
 .env
 .env.local
+.env.*
+!.env.example
+
+# JavaScript dependencies and build output
+node_modules/
+.next/
+out/
+dist/
