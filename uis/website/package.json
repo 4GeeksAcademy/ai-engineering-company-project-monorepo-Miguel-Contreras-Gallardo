@@ -1,0 +1,12 @@
+{
+  "name": "trackflow-website",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TrackFlow corporate website (static)",
+  "scripts": {
+    "start": "serve . -p 3000 --no-clipboard --single"
+  },
+  "dependencies": {
+    "serve": "^14.2.0"
+  }
+}
