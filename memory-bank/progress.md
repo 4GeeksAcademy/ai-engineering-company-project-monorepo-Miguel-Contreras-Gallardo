@@ -1,6 +1,6 @@
 # 📊 Progress Log — Trazabilidad del Proyecto
 
-> **Última actualización:** 2026-10-14
+> **Última actualización:** 2026-10-18
 > Registro cronológico del progreso del proyecto, sesión por sesión.
 > **Para ver el estado actual detallado, consulta `project-brief.md → sección 4 (Estado Actual).`**
 
@@ -58,37 +58,7 @@ Configurar infraestructura de trazabilidad del proyecto + diseño + implementaci
 
 ---
 
-## 📅 Sesión 3 — 2026-10-18
-
-### Objetivo
-Realizar auditoría Lighthouse completa, aplicar correcciones incrementales y refactorizar frontends.
-
-### Logros
-- [x] **Medición inicial Lighthouse** (4 auditorías: website desktop/mobile + backoffice desktop/mobile)
-  - Website Desktop: Perf 99, A11Y 87, BP 100, SEO 91
-  - Website Mobile: Perf 94, A11Y 91, BP 100, SEO 91
-  - Backoffice Desktop: Perf 92, A11Y 95, BP 96, SEO 82
-  - Backoffice Mobile: Perf 71, A11Y 95, BP 96, SEO 82
-- [x] `audit/before/` con informes HTML/JSON y capturas PNG
-- [x] `audit/AUDIT.md` con hallazgos iniciales y 2 candidatos a refactorización
-- [x] **6 correcciones incrementales aplicadas** (1 por commit):
-  1. SEO: `robots.txt` (Allow/Disallow), meta description, `<main>` landmark, heading order h4→h3
-  2. Accesibilidad: 3 correcciones de contraste WCAG AA (ratios 4.1→5.39, 3.27→5.86, 4.04→5.93)
-  3. Rendimiento: placeholders 18×18px Lucide, `min-height` en contenedores JS, revert de font blocking
-  4. Best Practices: `AbortController` con timeout para check de API (elimina ERR_CONNECTION_REFUSED)
-  5. Refactor: extracción de `uis/shared/lucide-helper.js`, eliminación de 6 llamadas directas a `lucide.createIcons()`
-  6. Revert de `media="print"` para Google Fonts (causaba regresión de FCP)
-- [x] **Medición final** (`audit/after/`):
-  - Website Desktop: Perf 92, **A11Y 100**, BP 96, **SEO 100**
-  - Website Mobile: **Perf 97**, **A11Y 100**, BP 96, **SEO 100**
-  - Backoffice Desktop: Perf 90, **A11Y 100**, BP 96, SEO 63*
-  - Backoffice Mobile: **Perf 93**, **A11Y 100**, BP 96, SEO 63*
-  - *SEO backoffice baja intencionadamente por robots.txt Disallow:/ (seguridad)
-- [x] `audit/REPORT.md` — Análisis completo con tablas comparativas, impacto y valoración
-- [x] `uis/shared/lucide-helper.js` — Helper compartido para inicialización de iconos
-- [x] `uis/package.json` — Dependencia serve para despliegue de frontends
-- [x] **Push a feature/lighthouse-audit** (7 nuevos commits) ✅
-- [x] PR #5 actualizado automáticamente
+## 📅 Sesión 2 — 2026-10-14
 
 ### Objetivo
 Implementar el gestor de inventario (Inventory Manager) con FastAPI, PostgreSQL y backoffice operativo.
@@ -132,6 +102,40 @@ Implementar el gestor de inventario (Inventory Manager) con FastAPI, PostgreSQL 
 | T16 | INV-011 | CRUD de artículos | ✅ Listo |
 | T17 | INV-002 | Entrada, salida y ajuste | ✅ Listo |
 | T18 | INV-012 | Punto de reorden y señal backoffice | ✅ Listo |
+
+---
+
+## 📅 Sesión 3 — 2026-10-18
+
+### Objetivo
+Realizar auditoría Lighthouse completa, aplicar correcciones incrementales y refactorizar frontends.
+
+### Logros
+- [x] **Medición inicial Lighthouse** (4 auditorías: website desktop/mobile + backoffice desktop/mobile)
+  - Website Desktop: Perf 99, A11Y 87, BP 100, SEO 91
+  - Website Mobile: Perf 94, A11Y 91, BP 100, SEO 91
+  - Backoffice Desktop: Perf 92, A11Y 95, BP 96, SEO 82
+  - Backoffice Mobile: Perf 71, A11Y 95, BP 96, SEO 82
+- [x] `audit/before/` con informes HTML/JSON + capturas PNG
+- [x] `audit/AUDIT.md` con hallazgos iniciales y 2 candidatos a refactorización
+- [x] **6 correcciones incrementales aplicadas** (1 por commit):
+  1. SEO: robots.txt (Allow/Disallow), meta description, `<main>` landmark, heading order h4→h3
+  2. Accesibilidad: 3 correcciones de contraste WCAG AA (ratios 4.1→5.39, 3.27→5.86, 4.04→5.93)
+  3. Rendimiento: placeholders 18×18px Lucide, `min-height` en contenedores JS, revert de font blocking
+  4. Best Practices: `AbortController` con timeout para check de API (elimina ERR_CONNECTION_REFUSED)
+  5. Refactor: extracción de `uis/shared/lucide-helper.js`, eliminación de 6 llamadas directas a `lucide.createIcons()`
+  6. Revert de `media="print"` para Google Fonts (causaba regresión de FCP)
+- [x] **Medición final** (`audit/after/`):
+  - Website Desktop: Perf 92, **A11Y 100**, BP 96, **SEO 100**
+  - Website Mobile: **Perf 97**, **A11Y 100**, BP 96, **SEO 100**
+  - Backoffice Desktop: Perf 90, **A11Y 100**, BP 96, SEO 63*
+  - Backoffice Mobile: **Perf 93**, **A11Y 100**, BP 96, SEO 63*
+  - *SEO backoffice baja intencionadamente por robots.txt Disallow:/ (seguridad)
+- [x] `audit/REPORT.md` — Análisis completo con tablas comparativas, impacto y valoración
+- [x] `uis/shared/lucide-helper.js` — Helper compartido para inicialización de iconos
+- [x] `uis/package.json` — Dependencia serve para despliegue de frontends
+- [x] **Push a feature/lighthouse-audit** (7 nuevos commits) ✅
+- [x] PR #5 actualizado automáticamente
 
 ---
 
