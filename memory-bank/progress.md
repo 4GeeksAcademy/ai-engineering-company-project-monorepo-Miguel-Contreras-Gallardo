@@ -1,6 +1,6 @@
 # 📊 Progress Log — Trazabilidad del Proyecto
 
-> **Última actualización:** 2026-10-14
+> **Última actualización:** 2026-10-18
 > Registro cronológico del progreso del proyecto, sesión por sesión.
 > **Para ver el estado actual detallado, consulta `project-brief.md → sección 4 (Estado Actual).`**
 
@@ -58,37 +58,7 @@ Configurar infraestructura de trazabilidad del proyecto + diseño + implementaci
 
 ---
 
-## 📅 Sesión 3 — 2026-10-18
-
-### Objetivo
-Realizar auditoría Lighthouse completa, aplicar correcciones incrementales y refactorizar frontends.
-
-### Logros
-- [x] **Medición inicial Lighthouse** (4 auditorías: website desktop/mobile + backoffice desktop/mobile)
-  - Website Desktop: Perf 99, A11Y 87, BP 100, SEO 91
-  - Website Mobile: Perf 94, A11Y 91, BP 100, SEO 91
-  - Backoffice Desktop: Perf 92, A11Y 95, BP 96, SEO 82
-  - Backoffice Mobile: Perf 71, A11Y 95, BP 96, SEO 82
-- [x] `audit/before/` con informes HTML/JSON y capturas PNG
-- [x] `audit/AUDIT.md` con hallazgos iniciales y 2 candidatos a refactorización
-- [x] **6 correcciones incrementales aplicadas** (1 por commit):
-  1. SEO: `robots.txt` (Allow/Disallow), meta description, `<main>` landmark, heading order h4→h3
-  2. Accesibilidad: 3 correcciones de contraste WCAG AA (ratios 4.1→5.39, 3.27→5.86, 4.04→5.93)
-  3. Rendimiento: placeholders 18×18px Lucide, `min-height` en contenedores JS, revert de font blocking
-  4. Best Practices: `AbortController` con timeout para check de API (elimina ERR_CONNECTION_REFUSED)
-  5. Refactor: extracción de `uis/shared/lucide-helper.js`, eliminación de 6 llamadas directas a `lucide.createIcons()`
-  6. Revert de `media="print"` para Google Fonts (causaba regresión de FCP)
-- [x] **Medición final** (`audit/after/`):
-  - Website Desktop: Perf 92, **A11Y 100**, BP 96, **SEO 100**
-  - Website Mobile: **Perf 97**, **A11Y 100**, BP 96, **SEO 100**
-  - Backoffice Desktop: Perf 90, **A11Y 100**, BP 96, SEO 63*
-  - Backoffice Mobile: **Perf 93**, **A11Y 100**, BP 96, SEO 63*
-  - *SEO backoffice baja intencionadamente por robots.txt Disallow:/ (seguridad)
-- [x] `audit/REPORT.md` — Análisis completo con tablas comparativas, impacto y valoración
-- [x] `uis/shared/lucide-helper.js` — Helper compartido para inicialización de iconos
-- [x] `uis/package.json` — Dependencia serve para despliegue de frontends
-- [x] **Push a feature/lighthouse-audit** (7 nuevos commits) ✅
-- [x] PR #5 actualizado automáticamente
+## 📅 Sesión 2 — 2026-10-14
 
 ### Objetivo
 Implementar el gestor de inventario (Inventory Manager) con FastAPI, PostgreSQL y backoffice operativo.
@@ -135,8 +105,100 @@ Implementar el gestor de inventario (Inventory Manager) con FastAPI, PostgreSQL 
 
 ---
 
-## 📈 KPIs del Proyecto
+## 📅 Sesión 3 — 2026-10-14
 
+### Objetivo
+Crear infraestructura Docker completa + sitio web corporativo + backoffice mejorado + desplegar a producción.
+
+### Logros Docker Infrastructure
+- [x] **`docker-compose.yml`** — Orquestación de 3 servicios: PostgreSQL 16, API FastAPI, UIs con red `trackflow-net`
+- [x] **`services/Dockerfile`** — Python 3.12-slim con `uv`, Uvicorn con hot-reload
+- [x] **`services/.dockerignore`** — Excluye `__pycache__`, `.env*`, `tests/`, logs
+- [x] **`uis/Dockerfile`** — Node 20-alpine con `serve`, expone 3000 y 3001
+- [x] **`uis/.dockerignore`** — Excluye `node_modules/`, `.env*`, logs
+- [x] **`uis/start.sh`** — Script que sirve website en `:3000` y backoffice en `:3001`
+- [x] **`uis/website/package.json`** + `uis/backoffice/package.json` — Dependencia `serve`
+- [x] **`.env`** — Variables de entorno para PostgreSQL y API
+- [x] **`scripts/deploy.sh`** — Script automatizado de despliegue a VPS
+
+### Logros Website + Backoffice
+- [x] **Sitio web corporativo** (`uis/website/`) — Hero, servicios, equipo directivo, contacto
+- [x] **Backoffice mejorado** (`uis/backoffice/`) — Dashboard con métricas, departamentos, equipo directivo
+- [x] **PR #3** (`feature/agent-memory-bank`) revisado y mergeado a `main` ✅
+
+### Logros Despliegue Producción
+- [x] **Stack local probado** en Windows con `docker compose up --build -d` ✅
+- [x] **Docker instalado** en VPS `207.154.214.100` (Ubuntu 22.04)
+- [x] **Contenedores desplegados**: `trackflow-db` (healthy), `trackflow-api`, `trackflow-uis`
+- [x] **Nginx configurado** como reverse proxy en puerto 80
+- [x] **PR #4** creado (`feature/docker-infrastructure` → `main`) 🆕
+
+### Pendientes actualizados
+| Prioridad | Tarea | Categoría |
+|---|---|---|
+| 🟢 P2 | Pipeline de ingesta de pedidos | Datos |
+| 🟢 P2 | Base de conocimiento para RAG (CX) | IA |
+| 🔵 P3 | Agente orquestador multi-departamento | Visión final |
+| 🟢 P2 | Restricción roles DB solo INSERT/SELECT (T03) | Backend |
+
+---
+
+## 📅 Sesión 4 — 2026-10-18
+
+### Objetivo
+Crear Dockerfile alternativo para el backend, archivo `.env.example` documentado, y actualizar README + memory-bank.
+
+### Logros
+- [x] `backend/Dockerfile` — Python 3.13-slim + uv + Uvicorn (alternativo)
+- [x] `backend/.dockerignore` — Excluye `__pycache__`, `.env`, `.venv/`, etc.
+- [x] `.env.example` — Documenta 11 variables de entorno (PostgreSQL, API, Frontend, Testing)
+- [x] `.gitignore` verificado: `.env` ignorado, `.env.example` NO ignorado ✅
+- [x] `README.md` y `README.es.md` actualizados con referencias a `backend/` y `.env.example`
+- [x] `active-context.md` actualizado con la sesión actual
+
+### Pendientes actualizados
+| Prioridad | Tarea | Categoría |
+|---|---|---|
+| 🟢 P2 | Pipeline de ingesta de pedidos | Datos |
+| 🟢 P2 | Base de conocimiento para RAG (CX) | IA |
+| 🔵 P3 | Agente orquestador multi-departamento | Visión final |
+| 🟢 P2 | Restricción roles DB solo INSERT/SELECT (T03) | Backend |
+
+---
+
+## 📅 Sesión 5 — 2026-10-18
+
+### Objetivo
+Realizar auditoría Lighthouse completa, aplicar correcciones incrementales y refactorizar frontends.
+
+### Logros
+- [x] **Medición inicial Lighthouse** (4 auditorías: website desktop/mobile + backoffice desktop/mobile)
+  - Website Desktop: Perf 99, A11Y 87, BP 100, SEO 91
+  - Website Mobile: Perf 94, A11Y 91, BP 100, SEO 91
+  - Backoffice Desktop: Perf 92, A11Y 95, BP 96, SEO 82
+  - Backoffice Mobile: Perf 71, A11Y 95, BP 96, SEO 82
+- [x] `audit/before/` con informes HTML/JSON + capturas PNG
+- [x] `audit/AUDIT.md` con hallazgos iniciales y 2 candidatos a refactorización
+- [x] **6 correcciones incrementales aplicadas** (1 por commit):
+  1. SEO: robots.txt (Allow/Disallow), meta description, `<main>` landmark, heading order h4→h3
+  2. Accesibilidad: 3 correcciones de contraste WCAG AA (ratios 4.1→5.39, 3.27→5.86, 4.04→5.93)
+  3. Rendimiento: placeholders 18×18px Lucide, `min-height` en contenedores JS, revert de font blocking
+  4. Best Practices: `AbortController` con timeout para check de API (elimina ERR_CONNECTION_REFUSED)
+  5. Refactor: extracción de `uis/shared/lucide-helper.js`, eliminación de 6 llamadas directas a `lucide.createIcons()`
+  6. Revert de `media="print"` para Google Fonts (causaba regresión de FCP)
+- [x] **Medición final** (`audit/after/`):
+  - Website Desktop: Perf 92, **A11Y 100**, BP 96, **SEO 100**
+  - Website Mobile: **Perf 97**, **A11Y 100**, BP 96, **SEO 100**
+  - Backoffice Desktop: Perf 90, **A11Y 100**, BP 96, SEO 63*
+  - Backoffice Mobile: **Perf 93**, **A11Y 100**, BP 96, SEO 63*
+  - *SEO backoffice baja intencionadamente por robots.txt Disallow:/ (seguridad)
+- [x] `audit/REPORT.md` — Análisis completo con tablas comparativas, impacto y valoración
+- [x] `uis/shared/lucide-helper.js` — Helper compartido para inicialización de iconos
+- [x] `uis/package.json` — Dependencia serve para despliegue de frontends
+- [x] **Push a feature/lighthouse-audit** (7 nuevos commits) ✅
+- [x] PR #5 actualizado automáticamente
+
+## 📈 KPIs del Proyecto
 | Indicador | Valor | Fecha |
 |---|---|---|
 | Documentos en memory-bank | 6 activos | 2026-09-23 |

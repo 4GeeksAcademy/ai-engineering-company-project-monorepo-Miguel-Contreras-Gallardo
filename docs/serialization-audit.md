@@ -21,7 +21,7 @@ La API **no expone rutas de autenticación** (registro, login, restablecimiento 
 
 | Estado | Significado |
 |--------|-------------|
-| 🟢 **Ya serializado** | Tiene `response_model` explícito y el esquema es adecuado. |
+| 🟢 **Contrato de salida definido** | Tiene un `response_model` adecuado, o declara correctamente `204 No Content` cuando la respuesta no debe incluir cuerpo. |
 | 🟡 **Parcialmente serializado** | Tiene `response_model` pero es demasiado genérico (ej. `dict`), incompleto, o no coincide exactamente con lo que el cliente necesita. |
 | 🔴 **Sin serializar** | No tiene `response_model` definido; devuelve un dict u ORM en crudo. |
 
@@ -46,10 +46,10 @@ La API **no expone rutas de autenticación** (registro, login, restablecimiento 
 
 | # | Método | Ruta | Propósito | `response_model` | ¿Qué devuelve realmente? | Estado |
 |---|--------|------|-----------|------------------|--------------------------|--------|
-| 1 | `GET` | `/` | Health check | ✅ `HealthResponse` | Instancia de `HealthResponse` | 🟢 |
+| 1 | `GET` | `/` | Health check | ✅ `HealthResponse` | Devuelve un `dict`; FastAPI lo valida y serializa conforme a `HealthResponse` | 🟢 |
 | 2 | `GET` | `/healthz` | Health check simple | ✅ `HealthResponse` | Instancia de `HealthResponse` | 🟢 |
 
-> **Nota:** Se creó el esquema `HealthResponse` en `app/schemas/health.py` con campos `status`, `service` y `version`.
+> **Nota:** Se creó el esquema `HealthResponse` en `app/schemas/health.py` con campos `status`, `service` y `version`. El handler de `/` devuelve un `dict` (no una instancia Pydantic); FastAPI valida ese valor contra el `response_model` y produce la respuesta documentada.
 
 ---
 
@@ -60,7 +60,7 @@ La API **no expone rutas de autenticación** (registro, login, restablecimiento 
 | 3 | `POST` | `/api/v1/incidents` | Crear incidencia (RF-01) | ✅ `IncidentResponse` | ORM `Incident` → Pydantic (`from_attributes=True`) | 🟢 |
 | 4 | `GET` | `/api/v1/incidents` | Listar incidencias (RF-06) | ✅ `PaginatedIncidentResponse` | `PaginatedIncidentResponse` con `items: list[IncidentResponse]` + paginación | 🟢 |
 | 5 | `GET` | `/api/v1/incidents/stats` | Estadísticas de incidencias | ✅ `IncidentStats` | El servicio devuelve `dict`, pero FastAPI lo valida contra `IncidentStats` | 🟢 |
-| 6 | `GET` | `/api/v1/incidents/open-by-severity` | Incidencias abiertas por severidad | ✅ `OpenBySeverityResponse` | `OpenBySeverityResponse` con `total_open` y `by_priority` | 🟢 |
+| 6 | `GET` | `/api/v1/incidents/open-by-severity` | Incidencias abiertas por severidad | ✅ `OpenBySeverityResponse` | El servicio devuelve un `dict`; FastAPI lo valida y serializa conforme a `OpenBySeverityResponse` (`total_open`, `by_priority`) | 🟢 |
 | 7 | `GET` | `/api/v1/incidents/{incident_id}` | Obtener detalle (RF-06) | ✅ `IncidentResponse` | ORM `Incident` → Pydantic (`from_attributes=True`) | 🟢 |
 | 8 | `PATCH` | `/api/v1/incidents/{incident_id}` | Actualizar incidencia (RF-04+05) | ✅ `IncidentResponse` | ORM `Incident` → Pydantic (`from_attributes=True`) | 🟢 |
 | 9 | `GET` | `/api/v1/incidents/{incident_id}/audit` | Historial de auditoría (RF-05) | ✅ `list[AuditLogResponse]` | ORM `IncidentAuditLog` → Pydantic (`from_attributes=True`) | 🟢 |
@@ -81,12 +81,12 @@ La API **no expone rutas de autenticación** (registro, login, restablecimiento 
 | 13 | `GET` | `/articles/` | Listar artículos | ✅ `List[ArticleResponse]` | Lista de ORM `Article` → Pydantic | 🟢 |
 | 14 | `GET` | `/articles/{sku}` | Obtener artículo por SKU | ✅ `ArticleResponse` | ORM `Article` → Pydantic | 🟢 |
 | 15 | `PUT` | `/articles/{sku}` | Actualizar artículo | ✅ `ArticleResponse` | ORM `Article` → Pydantic | 🟢 |
-| 16 | `DELETE` | `/articles/{sku}` | Eliminar (desactivar) artículo | ✅ *(204 No Content)* | `None` — sin cuerpo en la respuesta | 🟢 |
+| 16 | `DELETE` | `/articles/{sku}` | Eliminar (desactivar) artículo | ✅ *(204 No Content; sin `response_model`)* | `None` — sin cuerpo en la respuesta | 🟢 |
 | 17 | `POST` | `/articles/{sku}/lots` | Crear lote para un artículo | ✅ `LotResponse` | ORM `Lot` → Pydantic (`from_attributes=True`) | 🟢 |
 | 18 | `GET` | `/articles/{sku}/lots` | Listar lotes de un artículo | ✅ `List[LotResponse]` | Lista de ORM `Lot` → Pydantic | 🟢 |
 | 19 | `GET` | `/articles/{sku}/lots/{lot_code}` | Obtener lote por código | ✅ `LotResponse` | ORM `Lot` → Pydantic (`from_attributes=True`) | 🟢 |
 
-> **Análisis:** Todos los endpoints de artículos están correctamente serializados. El `DELETE` retorna `204 No Content` sin cuerpo, que es la práctica correcta.
+> **Análisis:** Los endpoints de artículos tienen un contrato de salida definido. El `DELETE` es la excepción: no declara `response_model` porque retorna `204 No Content` sin cuerpo, que es la práctica correcta.
 
 ---
 

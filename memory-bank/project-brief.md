@@ -98,16 +98,16 @@ Consulta (email/WhatsApp/tel) → Clasificación automática →
 
 | Capa | Tecnología | Estado |
 |---|---|---|
-| Backend API | **Python — FastAPI** | 📌 Por implementar |
-| Frontend | Por definir | ❓ Pendiente decisión |
+| Backend API | **Python — FastAPI** | ✅ Implementado (Incident Manager + Inventory Manager) |
+| Frontend UI | HTML + CSS + JS (estático con `serve`) | ✅ Website + Backoffice operativo |
 | Agentes IA | LangChain / CrewAI / LangGraph | ❓ Pendiente decisión |
-| Skills/Capacidades | Módulos Python reutilizables | 📌 Template SKILL.md vacío |
+| Skills/Capacidades | Módulos Python reutilizables | ✅ Skills de implementación creados |
 | Orquestación workflows | **n8n** | 📌 Sin implementar |
 | Datos | CSV → Pipelines → Procesado → Evaluación | 📌 Sin implementar |
-| Infraestructura | **Docker / docker-compose** | 📌 Sin implementar |
+| Infraestructura | **Docker / docker-compose** | ✅ **Implementado y en producción** |
 | Tipos TypeScript | TypeScript (`@repo/shared-types`) | ✅ Esqueleto creado (`Id`, `BaseEntity`) |
-| Tipos Python | Carpeta `shared/` (raíz) | 📁 Solo READMEs — pendiente definir relación con `packages/shared/` |
-| Control de versiones | Git + GitHub | ✅ Rama activa: `feature/incident-manager` |
+| Tipos Python | Carpeta `shared/` (raíz) | 📁 Solo READMEs |
+| Control de versiones | Git + GitHub | ✅ Rama activa: `feature/docker-infrastructure` |
 
 ### Entorno de desarrollo (Devcontainer)
 El proyecto incluye un contenedor de desarrollo preconfigurado en `.devcontainer/`:
