@@ -21,6 +21,8 @@ from app.schemas.incident import (
     IncidentStats,
     IncidentAssign,
     IncidentTransition,
+    PaginatedIncidentResponse,
+    OpenBySeverityResponse,
 )
 from app.schemas.audit import AuditLogResponse
 from app.services.incident_service import IncidentService
@@ -52,7 +54,7 @@ def create_incident(
 
 @router.get(
     "",
-    response_model=dict,
+    response_model=PaginatedIncidentResponse,
     summary="Listar incidencias (RF-06)",
     description="Lista incidencias con filtros por estado, categoría, prioridad, responsable, "
                 "área, canal y búsqueda textual.",
@@ -83,12 +85,12 @@ def list_incidents(
         limit=limit,
         offset=offset,
     )
-    return {
-        "items": [IncidentResponse.model_validate(i) for i in incidents],
-        "total": total,
-        "limit": limit,
-        "offset": offset,
-    }
+    return PaginatedIncidentResponse(
+        items=[IncidentResponse.model_validate(i) for i in incidents],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 # ── GET: Stats ───────────────────────────────────────────────────────────────
@@ -110,6 +112,7 @@ def get_stats(
 
 @router.get(
     "/open-by-severity",
+    response_model=OpenBySeverityResponse,
     summary="Incidencias abiertas por severidad",
     description="Volumen de incidencias abiertas (no cerradas ni canceladas) agrupadas "
                 "por prioridad. Ideal para widgets de dashboard.",
