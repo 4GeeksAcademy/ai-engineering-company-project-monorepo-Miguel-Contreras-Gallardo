@@ -21,8 +21,6 @@ from app.schemas.incident import (
     IncidentStats,
     IncidentAssign,
     IncidentTransition,
-    PaginatedIncidentResponse,
-    OpenBySeverityResponse,
 )
 from app.schemas.audit import AuditLogResponse
 from app.services.incident_service import IncidentService
