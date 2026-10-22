@@ -21,3 +21,11 @@ Thumbs.db
 # Environment
 .env
 .env.local
+**/.env
+**/.env.local
+
+# Node
+node_modules/
+.next/
+# Frontend build output
+mvp-app/frontend/out/

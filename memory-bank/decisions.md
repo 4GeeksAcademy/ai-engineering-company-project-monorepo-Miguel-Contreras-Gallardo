@@ -67,7 +67,24 @@
 
 ---
 
-## ADR-006: Refactorización de inicialización de iconos Lucide
+## ADR-006: Infraestructura Docker para el monorepo
+
+| Campo | Valor |
+|---|---|
+| **Fecha** | 2026-10-14 |
+| **Estado** | ✅ Aceptada |
+| **Contexto** | El proyecto necesitaba una forma reproducible y portátil de ejecutar todo el stack (PostgreSQL + API + UIs) tanto en desarrollo local como en producción. No existía docker-compose ni Dockerfiles. |
+| **Decisión** | Crear `docker-compose.yml` en la raíz del repo con 3 servicios: PostgreSQL 16 Alpine, API (Python 3.12-slim + uv + Uvicorn) y UIs (Node 20-alpine + serve). Usar una red interna `trackflow-net` y un volumen `trackflow_pgdata`. El script de despliegue `scripts/deploy.sh` automatiza la puesta en producción. Nginx actúa como reverse proxy en producción. |
+| **Consecuencias** | + stack reproducible con un solo comando (`docker compose up --build -d`). + Separación clara entre contenedores. + Despliegue exitoso a producción en VPS. - Los archivos estáticos (website/backoffice) se sirven con `serve` en vez de un servidor web completo. - Se requiere Nginx adicional para producción (puerto 80). |
+| **Alternativas** | Usar Docker Compose con perfiles para separar dev/prod. Servir estáticos directamente desde FastAPI (mezcla preocupaciones). Usar Caddy en vez de Nginx (menos config). |
+
+---
+
+## Plantilla para nuevas ADR
+
+```markdown
+
+## ADR-007: Refactorización de inicialización de iconos Lucide
 
 | Campo | Valor |
 |---|---|
@@ -80,7 +97,7 @@
 
 ---
 
-## ADR-007: Estrategia de carga de Google Fonts
+## ADR-008: Estrategia de carga de Google Fonts
 
 | Campo | Valor |
 |---|---|
@@ -92,7 +109,7 @@
 
 ---
 
-## ADR-008: Comprobación de estado de API con AbortController
+## ADR-009: Comprobación de estado de API con AbortController
 
 | Campo | Valor |
 |---|---|
@@ -102,11 +119,6 @@
 | **Decisión** | Envolver la petición en un `AbortController` con timeout de 1.5s. Si la API no responde, se aborta la petición antes de que el navegador registre el error de conexión. |
 | **Consecuencias** | + Cero errores de consola cuando la API no está disponible. + Timeout rápido (1.5s) en lugar de esperar el timeout nativo del navegador (~30s). |
 
----
-
-## Plantilla para nuevas ADR
-
-```markdown
 ## ADR-NNN: Título de la decisión
 
 | Campo | Valor |

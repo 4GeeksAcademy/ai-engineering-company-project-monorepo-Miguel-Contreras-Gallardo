@@ -47,11 +47,7 @@ Realizar auditoría Lighthouse inicial sobre los 2 frontends de TrackFlow (websi
 
 | Prioridad | Tarea | Dónde |
 |---|---|---|
-| 🟡 P1 | ~~**Fase 1 Gestor Incidencias**~~ ✅ **HECHO** | `services/api/` |
-| 🟡 P1 | Configurar `docker-compose.yml` (PostgreSQL + API) | Raíz del repo |
-| 🟡 P1 | System prompts en `agents/rules/` (7 deptos) | `agents/` |
-| 🟡 P1 | Migrar a PostgreSQL + Alembic migrations | `services/api/` |
 | 🟢 P2 | Pipeline de ingesta de pedidos | `data/` |
-| 🟢 P2 | API de inventario unificado | Backend |
 | 🟢 P2 | Base de conocimiento para RAG (CX) | IA |
+| 🟢 P2 | Restricción roles DB solo INSERT/SELECT (T03) | `services/api/` |
 | 🔵 P3 | Agente orquestador multi-departamento | Visión final |

@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.env*
+tests/
+*.log
+*.db
+*.sqlite
+.DS_Store
+Thumbs.db
+.gitignore
+README.md
+.venv/
+venv/
