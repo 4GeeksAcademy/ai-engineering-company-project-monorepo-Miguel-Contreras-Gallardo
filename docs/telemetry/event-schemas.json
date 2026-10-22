@@ -1,48 +1,871 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "TrackFlow Event Schemas",
-  "version": "1.0",
-  "description": "Catálogo completo de esquemas de eventos de telemetría para TrackFlow. Todos los eventos comparten una envoltura común definida en el schema base.",
-  "last_updated": "2026-10-21",
+  "version": "2.0",
+  "description": "Catálogo completo de esquemas de eventos de telemetría para TrackFlow. Todos los eventos comparten un envelope común en camelCase con validación estricta de allowlist en properties.",
+  "last_updated": "2026-10-22",
   "definitions": {
     "common_envelope": {
       "type": "object",
       "required": [
-        "event_id",
-        "event_type",
-        "event_version",
-        "source",
+        "eventId",
         "timestamp",
-        "department",
-        "trace_id",
-        "data"
+        "sessionId",
+        "userId",
+        "event_type",
+        "schemaVersion",
+        "requestId",
+        "properties"
       ],
       "properties": {
-        "event_id": {
+        "eventId": {
           "type": "string",
           "format": "uuid",
-          "description": "Identificador único del evento (garantiza idempotencia)"
-        },
-        "event_type": {
-          "type": "string",
-          "pattern": "^[a-z]+\\.[a-z_]+$",
-          "description": "Tipo de evento con namespacing dominio.accion"
-        },
-        "event_version": {
-          "type": "string",
-          "pattern": "^\\d+\\.\\d+$",
-          "description": "Versión del esquema del evento (semver sin patch)"
-        },
-        "source": {
-          "type": "string",
-          "description": "Nombre del servicio o componente que emite el evento"
+          "description": "Identificador único del evento. Garantiza idempotencia en toda la plataforma."
         },
         "timestamp": {
           "type": "string",
           "format": "date-time",
-          "description": "Momento ISO 8601 en que ocurrió el evento"
+          "description": "Momento exacto (UTC) en que ocurrió el evento, con resolución de milisegundos. Formato: 2026-10-22T14:30:00.000Z"
+        },
+        "sessionId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Identificador aleatorio de sesión; para procesos sin sesión humana, usar UUID efímero de ejecución."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Identificador seudónimo del actor que originó el evento. Usar ID interno opaco o HMAC; no email, nombre ni IP. Para sistemas: urn:service:inventory-monitor."
+        },
+        "event_type": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*_[a-z][a-z0-9_]*$",
+          "description": "Tipo de evento según taxonomía entidad_accion. Siempre minúsculas con guiones bajos, verbo en pasado."
+        },
+        "schemaVersion": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+$",
+          "description": "Versión del esquema del evento (solo major.minor). Ej: 1.0, 2.1."
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID de correlación opaco para el flujo de una petición o ejecución; no codificar IDs personales o de negocio."
+        },
+        "properties": {
+          "type": "object",
+          "description": "Payload específico del tipo de evento. Validado contra el allowlist definido en el schema de cada evento.",
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "sku_ref": {
+      "type": "object",
+      "required": [
+        "skuId"
+      ],
+      "properties": {
+        "skuId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID opaco del SKU; no incluir nombre de producto"
+        }
+      },
+      "additionalProperties": false
+    },
+    "warehouse_ref": {
+      "type": "object",
+      "required": [
+        "warehouseLocation"
+      ],
+      "properties": {
+        "warehouseLocation": {
+          "type": "string",
+          "enum": [
+            "LA",
+            "Zaragoza"
+          ],
+          "description": "Código del almacén donde ocurrió el evento"
+        }
+      },
+      "additionalProperties": false
+    },
+    "client_ref": {
+      "type": "object",
+      "required": [
+        "clientId"
+      ],
+      "properties": {
+        "clientId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID único del cliente (marca) en TrackFlow"
+        },
+        "clientCountry": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$",
+          "description": "País del cliente (código ISO 3166-1 alpha-2)"
+        },
+        "clientType": {
+          "type": "string",
+          "enum": [
+            "B2B",
+            "B2C"
+          ],
+          "description": "Tipo de cliente"
+        }
+      },
+      "additionalProperties": false
+    },
+    "address_ref": {
+      "type": "object",
+      "properties": {
+        "country": {
+          "type": "string",
+          "description": "País de destino (código ISO 3166-1 alpha-2)"
+        },
+        "city": {
+          "type": "string",
+          "description": "Ciudad de destino; no incluir dirección exacta ni persistir en telemetría si permite identificar al destinatario."
+        },
+        "zipCode": {
+          "type": "string",
+          "description": "Código postal; excluir de telemetría persistida por riesgo de identificación indirecta."
+        }
+      },
+      "additionalProperties": false
+    },
+    "carrier_ref": {
+      "type": "object",
+      "required": [
+        "carrierId",
+        "carrierName"
+      ],
+      "properties": {
+        "carrierId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID único del transportista"
+        },
+        "carrierName": {
+          "type": "string",
+          "enum": ["UPS", "FedEx", "MRW", "DHL", "SEUR", "Correos", "other"],
+          "description": "Nombre del transportista (UPS, FedEx, MRW…)"
+        },
+        "carrierCountry": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$",
+          "description": "País de origen del transportista"
+        }
+      },
+      "additionalProperties": false
+    },
+    "pii_sanitization_note": {
+      "type": "string",
+      "description": "Aplican las exclusiones de privacidad de §12.4 de telemetry-plan.md: no persistir email, nombre, IP, dirección exacta, firma, texto libre, número de seguimiento ni nombres de cliente/SKU. Cuando sea necesario, usar ID opaco/HMAC con acceso controlado; no tratar el hash simple como anonimización."
+    }
+  },
+  "event_schemas": {
+    "shipment_delivered": {
+      "$id": "#shipment_delivered",
+      "title": "Shipment Delivered",
+      "description": "Entrega exitosa de un envío al consumidor final. Evento clave para calcular M01 (tasa de entrega a tiempo).",
+      "category": "ultima_milla",
+      "metrics": [
+        "M01"
+      ],
+      "pii_level": "MEDIUM",
+      "allowlist": [
+        "shipmentId",
+        "carrierName",
+        "deliveredAt",
+        "promisedDate",
+        "onTime",
+        "delayDays"
+      ],
+      "required": [
+        "shipmentId",
+        "carrierName",
+        "deliveredAt",
+        "onTime"
+      ],
+      "properties": {
+        "shipmentId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID único del envío en TrackFlow"
+        },
+        "carrierName": {
+          "type": "string",
+          "enum": ["UPS", "FedEx", "MRW", "DHL", "SEUR", "Correos", "other"],
+          "description": "Nombre del transportista (UPS, FedEx, MRW…)"
+        },
+        "deliveredAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento exacto de la entrega"
+        },
+        "promisedDate": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Fecha prometida al consumidor (para calcular onTime)"
+        },
+        "onTime": {
+          "type": "boolean",
+          "description": "true si se entregó antes o en la fecha prometida"
+        },
+        "delayDays": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Días de retraso respecto a la fecha prometida (0 si onTime)"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "shipmentId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+          "carrierName": "UPS",
+          "deliveredAt": "2026-10-23T14:20:00.000Z",
+          "promisedDate": "2026-10-24T18:00:00.000Z",
+          "onTime": true,
+          "delayDays": 0
+        }
+      ]
+    },
+    "order_picking_completed": {
+      "$id": "#order_picking_completed",
+      "title": "Order Picking Completed",
+      "description": "Finalización del picking de un pedido. El tiempo desde picking_started hasta este evento permite calcular M02.",
+      "category": "almacen",
+      "metrics": [
+        "M02"
+      ],
+      "pii_level": "HIGH",
+      "allowlist": [
+        "orderId",
+        "warehouseLocation",
+        "operatorId",
+        "startedAt",
+        "completedAt",
+        "pickingTimeMinutes",
+        "itemsPicked",
+        "linesCompleted"
+      ],
+      "required": [
+        "orderId",
+        "warehouseLocation",
+        "operatorId",
+        "startedAt",
+        "completedAt",
+        "pickingTimeMinutes"
+      ],
+      "properties": {
+        "orderId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID único del pedido en TrackFlow"
+        },
+        "warehouseLocation": {
+          "type": "string",
+          "enum": [
+            "LA",
+            "Zaragoza"
+          ],
+          "description": "Almacén donde se realizó el picking"
+        },
+        "operatorId": {
+          "type": "string",
+          "pattern": "^(usr_[a-zA-Z0-9_-]{8,64}|usr_hmac_[a-f0-9]{32,64})$",
+          "description": "ID opaco/HMAC seudónimo del operario; nunca email ni nombre."
+        },
+        "startedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento de inicio del picking"
+        },
+        "completedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento de finalización del picking"
+        },
+        "pickingTimeMinutes": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Tiempo total de picking en minutos (calculado)"
+        },
+        "itemsPicked": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Número total de unidades pickingadas"
+        },
+        "linesCompleted": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Número de líneas de pedido completadas"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "orderId": "f8e7d6c5-b4a3-2c1d-0e9f-8a7b6c5d4e3f",
+          "warehouseLocation": "LA",
+          "operatorId": "usr_hmac_7f4d9e2a1b8c3f5d0e6a7b9c1d2e3f4a",
+          "startedAt": "2026-10-21T10:05:00.000Z",
+          "completedAt": "2026-10-21T10:17:30.000Z",
+          "pickingTimeMinutes": 12.5,
+          "itemsPicked": 45,
+          "linesCompleted": 3
+        }
+      ]
+    },
+    "return_completed": {
+      "$id": "#return_completed",
+      "title": "Return Completed",
+      "description": "Devolución recibida físicamente en el almacén y lista para inspección. Punto de medida del volumen de devoluciones (M03).",
+      "category": "logistica_inversa",
+      "metrics": [
+        "M03"
+      ],
+      "pii_level": "MEDIUM",
+      "allowlist": [
+        "returnId",
+        "shipmentId",
+        "clientId",
+        "clientCountry",
+        "warehouseLocation",
+        "receivedAt",
+        "packageCondition",
+        "productValue",
+        "reasonCategory"
+      ],
+      "required": [
+        "returnId",
+        "shipmentId",
+        "clientId",
+        "clientCountry",
+        "warehouseLocation",
+        "receivedAt"
+      ],
+      "properties": {
+        "returnId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID único de la devolución en TrackFlow"
+        },
+        "shipmentId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID del envío original asociado"
+        },
+        "clientId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID de la marca (cliente B2B) propietaria del producto"
+        },
+        "clientCountry": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$",
+          "description": "País del cliente (US/ES)"
+        },
+        "warehouseLocation": {
+          "type": "string",
+          "enum": [
+            "LA",
+            "Zaragoza"
+          ],
+          "description": "Almacén donde se recibió la devolución"
+        },
+        "receivedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento de recepción física"
+        },
+        "packageCondition": {
+          "type": "string",
+          "enum": [
+            "good",
+            "damaged",
+            "open"
+          ],
+          "description": "Estado del paquete al llegar"
+        },
+        "productValue": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Valor del producto en EUR en el momento de la devolución"
+        },
+        "reasonCategory": {
+          "type": "string",
+          "enum": ["defective", "wrong_item", "not_as_described", "changed_mind", "damaged_in_transit", "other"],
+          "description": "Categoría del motivo de devolución"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "returnId": "3f4a5b6c-7d8e-9f0a-1b2c-3d4e5f6a7b8c",
+          "shipmentId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+          "clientId": "550e8400-e29b-41d4-a716-446655440001",
+          "clientCountry": "US",
+          "warehouseLocation": "LA",
+          "receivedAt": "2026-10-24T09:00:00.000Z",
+          "packageCondition": "good",
+          "productValue": 89.99,
+          "reasonCategory": "defective"
+        }
+      ]
+    },
+    "ticket_auto_resolved": {
+      "$id": "#ticket_auto_resolved",
+      "title": "Ticket Auto Resolved",
+      "description": "Ticket resuelto automáticamente por la IA sin intervención humana. Mide directamente M04.",
+      "category": "cx",
+      "metrics": [
+        "M04"
+      ],
+      "pii_level": "HIGH",
+      "allowlist": [
+        "ticketId",
+        "clientType",
+        "channel",
+        "language",
+        "category",
+        "resolutionType",
+        "resolvedAt",
+        "resolutionTimeSeconds",
+        "autoApproved",
+        "confidenceScore"
+      ],
+      "required": [
+        "ticketId",
+        "clientType",
+        "channel",
+        "resolutionType",
+        "resolvedAt"
+      ],
+      "properties": {
+        "ticketId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID único del ticket en TrackFlow"
+        },
+        "clientType": {
+          "type": "string",
+          "enum": [
+            "B2B",
+            "B2C"
+          ],
+          "description": "Tipo de cliente"
+        },
+        "channel": {
+          "type": "string",
+          "enum": [
+            "email",
+            "whatsapp",
+            "phone",
+            "chat"
+          ],
+          "description": "Canal de origen"
+        },
+        "language": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}(-[A-Z]{2})?$",
+          "description": "Idioma detectado (en, es)"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["tracking", "returns", "order_status", "product_information", "billing", "other"],
+          "description": "Categoría asignada por la IA"
+        },
+        "resolutionType": {
+          "type": "string",
+          "enum": ["tracking_info", "return_instructions", "order_status_info", "product_info", "billing_info", "other"],
+          "description": "Tipo de resolución automática aplicada"
+        },
+        "resolvedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento de resolución"
+        },
+        "resolutionTimeSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Tiempo desde creación hasta resolución"
+        },
+        "autoApproved": {
+          "type": "boolean",
+          "description": "true si se resolvió sin revisión humana"
+        },
+        "confidenceScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Nivel de confianza de la IA en la resolución (0–1)"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "ticketId": "5a6b7c8d-9e0f-1a2b-3c4d-5e6f7a8b9c0d",
+          "clientType": "B2C",
+          "channel": "email",
+          "language": "en",
+          "category": "tracking",
+          "resolutionType": "tracking_info",
+          "resolvedAt": "2026-10-21T09:00:35.000Z",
+          "resolutionTimeSeconds": 35,
+          "autoApproved": true,
+          "confidenceScore": 0.97
+        }
+      ]
+    },
+    "executive_report_generated": {
+      "$id": "#executive_report_generated",
+      "title": "Executive Report Generated",
+      "description": "Informe ejecutivo generado automáticamente. La diferencia entre timestamp del evento y el momento de los datos mide M05.",
+      "category": "direccion",
+      "metrics": [
+        "M05"
+      ],
+      "pii_level": "LOW",
+      "allowlist": [
+        "reportId",
+        "reportType",
+        "periodStart",
+        "periodEnd",
+        "generatedAt",
+        "dataFreshnessSeconds",
+        "metricsIncluded",
+        "department"
+      ],
+      "required": [
+        "reportId",
+        "reportType",
+        "periodStart",
+        "periodEnd",
+        "generatedAt",
+        "dataFreshnessSeconds"
+      ],
+      "properties": {
+        "reportId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "ID único del reporte generado"
+        },
+        "reportType": {
+          "type": "string",
+          "enum": [
+            "weekly_executive",
+            "monthly_executive",
+            "daily_summary",
+            "custom"
+          ],
+          "description": "Tipo de reporte"
+        },
+        "periodStart": {
+          "type": "string",
+          "format": "date",
+          "description": "Inicio del período cubierto (YYYY-MM-DD)"
+        },
+        "periodEnd": {
+          "type": "string",
+          "format": "date",
+          "description": "Fin del período cubierto (YYYY-MM-DD)"
+        },
+        "generatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Marca de tiempo de generación"
+        },
+        "dataFreshnessSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Tiempo entre el dataset más reciente y el momento de generación (mide M05)"
+        },
+        "metricsIncluded": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Lista de métricas incluidas en el reporte"
         },
         "department": {
+          "type": "string",
+          "enum": ["direccion", "almacen", "ultima_milla", "logistica_inversa", "cx", "comercial", "tecnologia", "operaciones"],
+          "description": "Departamento destinatario del reporte"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "reportId": "rpt_weekly_2026_w43",
+          "reportType": "weekly_executive",
+          "periodStart": "2026-10-15",
+          "periodEnd": "2026-10-21",
+          "generatedAt": "2026-10-22T07:00:00.000Z",
+          "dataFreshnessSeconds": 45,
+          "metricsIncluded": [
+            "M01",
+            "M02",
+            "M03",
+            "M04",
+            "M05",
+            "M06",
+            "M07",
+            "M08",
+            "M09",
+            "M10"
+          ],
+          "department": "direccion"
+        }
+      ]
+    },
+    "shipment_carrier_assigned": {
+      "$id": "#shipment_carrier_assigned",
+      "title": "Shipment Carrier Assigned",
+      "description": "Transportista asignado al envío por el motor de selección inteligente. Incluye el coste estimado, clave para M06.",
+      "category": "ultima_milla",
+      "metrics": [
+        "M06"
+      ],
+      "pii_level": "LOW",
+      "allowlist": [
+        "shipmentId",
+        "carrierId",
+        "carrierName",
+        "carrierCountry",
+        "assignmentReason",
+        "estimatedCost",
+        "estimatedCostPerKg",
+        "estimatedDeliveryDate",
+        "weightKg",
+        "urgent",
+        "destinationCountry"
+      ],
+      "required": [
+        "shipmentId",
+        "carrierId",
+        "carrierName",
+        "carrierCountry",
+        "estimatedCost"
+      ],
+      "properties": {
+        "shipmentId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID único del envío en TrackFlow"
+        },
+        "carrierId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID del transportista seleccionado"
+        },
+        "carrierName": {
+          "type": "string",
+          "enum": ["UPS", "FedEx", "MRW", "DHL", "SEUR", "Correos", "other"],
+          "description": "Nombre del transportista (UPS, FedEx, MRW…)"
+        },
+        "carrierCountry": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$",
+          "description": "País de origen del transportista"
+        },
+        "assignmentReason": {
+          "type": "string",
+          "enum": ["lowest_cost", "fastest_delivery", "best_cost_for_weight_destination", "capacity_available", "manual_override_approved"],
+          "description": "Razón de la selección del transportista"
+        },
+        "estimatedCost": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Coste estimado total del envío (EUR)"
+        },
+        "estimatedCostPerKg": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Coste estimado por kg (EUR/kg) — métrica M06"
+        },
+        "estimatedDeliveryDate": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Fecha estimada de entrega"
+        },
+        "weightKg": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Peso total del envío en kg"
+        },
+        "urgent": {
+          "type": "boolean",
+          "description": "true si el envío es urgente"
+        },
+        "destinationCountry": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$",
+          "description": "País de destino del envío"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "shipmentId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+          "carrierId": "c1d2e3f4-5678-90ab-cdef-1234567890ab",
+          "carrierName": "UPS",
+          "carrierCountry": "US",
+          "assignmentReason": "best_cost_for_weight_destination",
+          "estimatedCost": 18.75,
+          "estimatedCostPerKg": 0.83,
+          "estimatedDeliveryDate": "2026-10-24T18:00:00.000Z",
+          "weightKg": 22.5,
+          "urgent": false,
+          "destinationCountry": "US"
+        }
+      ]
+    },
+    "deployment_completed": {
+      "$id": "#deployment_completed",
+      "title": "Deployment Completed",
+      "description": "Despliegue de nueva versión finalizado exitosamente. La duración entre deployment_started y deployment_completed mide M07.",
+      "category": "tecnologia",
+      "metrics": [
+        "M07"
+      ],
+      "pii_level": "MEDIUM",
+      "allowlist": [
+        "deploymentId",
+        "serviceName",
+        "version",
+        "previousVersion",
+        "environment",
+        "completedAt",
+        "durationMinutes",
+        "healthCheckPassed",
+        "deployedBy",
+        "commitSha"
+      ],
+      "required": [
+        "deploymentId",
+        "serviceName",
+        "version",
+        "environment",
+        "completedAt",
+        "durationMinutes",
+        "healthCheckPassed"
+      ],
+      "properties": {
+        "deploymentId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID único del despliegue"
+        },
+        "serviceName": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "Nombre del servicio desplegado"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$",
+          "description": "Versión desplegada (semver)"
+        },
+        "previousVersion": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$",
+          "description": "Versión anterior"
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "production",
+            "staging",
+            "development"
+          ],
+          "description": "Entorno destino"
+        },
+        "completedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento de finalización"
+        },
+        "durationMinutes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Duración total en minutos (mide M07)"
+        },
+        "healthCheckPassed": {
+          "type": "boolean",
+          "description": "true si las health checks post-deploy pasaron"
+        },
+        "deployedBy": {
+          "type": "string",
+          "pattern": "^(usr_[a-zA-Z0-9_-]{8,64}|usr_hmac_[a-f0-9]{32,64})$",
+          "description": "ID opaco/HMAC seudónimo del desarrollador, solo si es necesario; nunca email ni nombre."
+        },
+        "commitSha": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{7,40}$",
+          "description": "SHA del commit desplegado"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "deploymentId": "7a8b9c0d-1e2f-3a4b-5c6d-7e8f9a0b1c2d",
+          "serviceName": "inventory-api",
+          "version": "2.5.0",
+          "previousVersion": "2.4.1",
+          "environment": "production",
+          "completedAt": "2026-10-21T02:15:00.000Z",
+          "durationMinutes": 15,
+          "healthCheckPassed": true,
+          "deployedBy": "usr_hmac_7f3d9e2a1b8c4f5d0e6a7b9c1d2e3f4b",
+          "commitSha": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b"
+        }
+      ]
+    },
+    "incident_sla_breached": {
+      "$id": "#incident_sla_breached",
+      "title": "Incident SLA Breached",
+      "description": "Incidencia que ha superado el SLA acordado sin resolverse. Se emite cuando el tiempo de resolución supera el umbral (M08).",
+      "category": "tecnologia",
+      "metrics": [
+        "M08"
+      ],
+      "pii_level": "MEDIUM",
+      "allowlist": [
+        "incidentId",
+        "priority",
+        "assignedArea",
+        "slaDeadline",
+        "breachedAt",
+        "overdueHours",
+        "currentStatus"
+      ],
+      "required": [
+        "incidentId",
+        "priority",
+        "slaDeadline",
+        "breachedAt",
+        "overdueHours"
+      ],
+      "properties": {
+        "incidentId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID opaco de la incidencia en el sistema de ticketing; nunca usar título, email ni identificador externo con datos personales."
+        },
+        "priority": {
+          "type": "string",
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low"
+          ],
+          "description": "Prioridad de la incidencia"
+        },
+        "assignedArea": {
           "type": "string",
           "enum": [
             "almacen",
@@ -51,4579 +874,1150 @@
             "cx",
             "comercial",
             "tecnologia",
-            "direccion",
-            "frontend",
-            "website"
+            "operaciones"
           ],
-          "description": "Departamento responsable del evento. Incluye 'frontend' para eventos de UI del backoffice y 'website' para eventos de la web corporativa."
+          "description": "Área responsable de la incidencia"
         },
-        "warehouse": {
+        "slaDeadline": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Fecha límite del SLA"
+        },
+        "breachedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento en que se superó el SLA"
+        },
+        "overdueHours": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Horas de retraso acumuladas"
+        },
+        "currentStatus": {
+          "type": "string",
+          "enum": [
+            "open",
+            "in_progress",
+            "pending",
+            "resolved",
+            "closed"
+          ],
+          "description": "Estado actual de la incidencia"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "incidentId": "2c7b4a19-8e63-4f20-9d51-6a3b8c0e2f74",
+          "priority": "critical",
+          "assignedArea": "tecnologia",
+          "slaDeadline": "2026-10-21T12:00:00.000Z",
+          "breachedAt": "2026-10-21T15:00:00.000Z",
+          "overdueHours": 3,
+          "currentStatus": "in_progress"
+        }
+      ]
+    },
+    "stock_depleted": {
+      "$id": "#stock_depleted",
+      "title": "Stock Depleted",
+      "description": "Rotura de stock: un SKU ha agotado su inventario disponible en un almacén. Mide M09.",
+      "category": "almacen",
+      "metrics": [
+        "M09"
+      ],
+      "pii_level": "MEDIUM",
+      "allowlist": [
+        "skuId",
+        "warehouseLocation",
+        "currentStock",
+        "stockMinimum",
+        "clientId",
+        "affectedOrdersCount",
+        "outSince"
+      ],
+      "required": [
+        "skuId",
+        "warehouseLocation",
+        "currentStock",
+        "stockMinimum",
+        "clientId"
+      ],
+      "properties": {
+        "skuId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID único del SKU"
+        },
+        "warehouseLocation": {
           "type": "string",
           "enum": [
             "LA",
             "Zaragoza"
           ],
-          "description": "Almacén asociado al evento (solo si aplica)"
+          "description": "Almacén donde ocurrió la rotura"
         },
-        "trace_id": {
+        "currentStock": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Stock actual (0 en el momento de la rotura)"
+        },
+        "stockMinimum": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Stock mínimo configurado para el SKU"
+        },
+        "clientId": {
           "type": "string",
           "format": "uuid",
-          "description": "ID de correlación para trazar flujos multi-evento"
+          "description": "ID opaco del cliente B2B propietario del SKU; su resolución requiere acceso controlado."
         },
-        "user_id": {
+        "affectedOrdersCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Número de pedidos afectados por la rotura"
+        },
+        "outSince": {
           "type": "string",
-          "description": "Identificador del usuario/operario que originó el evento"
-        },
-        "client_id": {
-          "type": "string",
-          "format": "uuid",
-          "description": "Identificador del cliente (marca) asociado"
-        },
-        "metadata": {
-          "type": "object",
-          "description": "Metadatos adicionales libres (tags, entorno, versión de deploy)",
-          "additionalProperties": true
-        },
-        "data": {
-          "type": "object",
-          "description": "Payload específico del tipo de evento. Validado contra el schema correspondiente."
+          "format": "date-time",
+          "description": "Momento desde el que el stock es 0"
         }
-      }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "skuId": "b2c3d4e5-6789-01ab-cdef-2345678901bc",
+          "warehouseLocation": "LA",
+          "currentStock": 0,
+          "stockMinimum": 300,
+          "clientId": "550e8400-e29b-41d4-a716-446655440003",
+          "affectedOrdersCount": 8,
+          "outSince": "2026-10-21T08:25:00.000Z"
+        }
+      ]
     },
-    "paginated_response": {
-      "type": "object",
+    "client_health_score_updated": {
+      "$id": "#client_health_score_updated",
+      "title": "Client Health Score Updated",
+      "description": "Scoring de salud de un cliente B2B recalculado. Mide la satisfacción y predice renovación (M10).",
+      "category": "comercial",
+      "metrics": [
+        "M10"
+      ],
+      "pii_level": "MEDIUM",
+      "allowlist": [
+        "clientId",
+        "clientCountry",
+        "healthScore",
+        "previousScore",
+        "scoreOnTimeDelivery",
+        "scoreReturnRate",
+        "scoreCxSatisfaction",
+        "scoreVolumeTrend",
+        "riskLevel",
+        "evaluatedAt"
+      ],
       "required": [
-        "events",
-        "total",
-        "page",
-        "page_size"
+        "clientId",
+        "healthScore",
+        "riskLevel",
+        "evaluatedAt"
       ],
       "properties": {
-        "events": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/common_envelope"
-          }
+        "clientId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID único del cliente B2B"
         },
-        "total": {
-          "type": "integer",
-          "minimum": 0
+        "clientCountry": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$",
+          "description": "País del cliente (código ISO 3166-1 alpha-2)"
         },
-        "page": {
-          "type": "integer",
-          "minimum": 1
+        "healthScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Puntuación global de salud (0–10)"
         },
-        "page_size": {
+        "previousScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Puntuación en la evaluación anterior"
+        },
+        "scoreOnTimeDelivery": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Subscore: entregas a tiempo (0–10)"
+        },
+        "scoreReturnRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Subscore: tasa de devoluciones (0–10)"
+        },
+        "scoreCxSatisfaction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Subscore: satisfacción CX (0–10)"
+        },
+        "scoreVolumeTrend": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Subscore: tendencia de volumen (0–10)"
+        },
+        "riskLevel": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ],
+          "description": "Nivel de riesgo"
+        },
+        "evaluatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento de la evaluación"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "clientId": "550e8400-e29b-41d4-a716-446655440001",
+          "clientCountry": "US",
+          "healthScore": 8.5,
+          "previousScore": 8.2,
+          "scoreOnTimeDelivery": 8.8,
+          "scoreReturnRate": 7.5,
+          "scoreCxSatisfaction": 9.0,
+          "scoreVolumeTrend": 8.7,
+          "riskLevel": "low",
+          "evaluatedAt": "2026-10-21T06:00:00.000Z"
+        }
+      ]
+    },
+    "login_succeeded": {
+      "$id": "#login_succeeded",
+      "title": "Login Succeeded",
+      "description": "Inicio de sesión exitoso tras verificar credenciales.",
+      "category": "autenticacion",
+      "metrics": [],
+      "pii_level": "HIGH",
+      "allowlist": [
+        "authMethod",
+        "loginAt",
+        "sourceApp"
+      ],
+      "required": [
+        "loginAt"
+      ],
+      "properties": {
+        "authMethod": {
+          "type": "string",
+          "enum": [
+            "password",
+            "sso",
+            "mfa",
+            "api_token"
+          ],
+          "description": "Método de autenticación"
+        },
+        "loginAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento del inicio de sesión"
+        },
+        "sourceApp": {
+          "type": "string",
+          "enum": [
+            "backoffice",
+            "website",
+            "api"
+          ],
+          "description": "Aplicación de origen"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "authMethod": "password",
+          "loginAt": "2026-10-22T08:00:00.000Z",
+          "sourceApp": "backoffice"
+        }
+      ]
+    },
+    "login_failed": {
+      "$id": "#login_failed",
+      "title": "Login Failed",
+      "description": "Intento de inicio de sesión fallido por credenciales incorrectas o cuenta bloqueada.",
+      "category": "autenticacion",
+      "metrics": [],
+      "pii_level": "HIGH",
+      "allowlist": [
+        "failureReason",
+        "attemptAt",
+        "sourceApp",
+        "attemptCount"
+      ],
+      "required": [
+        "failureReason",
+        "attemptAt"
+      ],
+      "properties": {
+        "failureReason": {
+          "type": "string",
+          "enum": [
+            "invalid_password",
+            "account_locked",
+            "invalid_user",
+            "mfa_failed"
+          ],
+          "description": "Motivo del fallo"
+        },
+        "attemptAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento del intento"
+        },
+        "sourceApp": {
+          "type": "string",
+          "enum": [
+            "backoffice",
+            "website",
+            "api"
+          ],
+          "description": "Aplicación de origen"
+        },
+        "attemptCount": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 1000
+          "description": "Número de intentos fallidos consecutivos acumulados"
         }
-      }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "failureReason": "invalid_password",
+          "attemptAt": "2026-10-22T08:01:00.000Z",
+          "sourceApp": "backoffice",
+          "attemptCount": 3
+        }
+      ]
     },
-    "idempotency_key": {
-      "type": "string",
-      "description": "Clave única de solicitud para evitar duplicados en reintentos",
-      "pattern": "^[a-f0-9\\-]{36}$"
-    },
-    "error_response": {
-      "type": "object",
+    "session_expired": {
+      "$id": "#session_expired",
+      "title": "Session Expired",
+      "description": "Sesión de usuario caducada por inactividad o por superar el TTL máximo.",
+      "category": "autenticacion",
+      "metrics": [],
+      "pii_level": "MEDIUM",
+      "allowlist": [
+        "expiredAt",
+        "createdAt",
+        "inactivityMinutes",
+        "reason"
+      ],
       "required": [
-        "error",
-        "code",
-        "message"
+        "expiredAt",
+        "createdAt"
       ],
       "properties": {
-        "error": {
-          "type": "boolean",
-          "const": true
+        "expiredAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento de expiración"
         },
-        "code": {
-          "type": "string"
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento de creación de la sesión"
         },
-        "message": {
-          "type": "string"
+        "inactivityMinutes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Minutos de inactividad antes de expirar"
         },
-        "details": {
-          "type": "object"
+        "reason": {
+          "type": "string",
+          "enum": [
+            "ttl_exceeded",
+            "inactivity",
+            "force_logout",
+            "password_changed"
+          ],
+          "description": "Motivo de expiración"
         }
-      }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "expiredAt": "2026-10-22T12:30:00.000Z",
+          "createdAt": "2026-10-22T08:00:00.000Z",
+          "inactivityMinutes": 35,
+          "reason": "ttl_exceeded"
+        }
+      ]
     },
-    "sku_ref": {
-      "type": "object",
+    "api_latency_recorded": {
+      "$id": "#api_latency_recorded",
+      "title": "API Latency Recorded",
+      "description": "Medición de latencia de un endpoint de API. Se emite en cada petición o como muestra agregada en ventanas de tiempo.",
+      "category": "rendimiento",
+      "metrics": [
+        "M08"
+      ],
+      "pii_level": "LOW",
+      "allowlist": [
+        "serviceName",
+        "endpoint",
+        "httpMethod",
+        "latencyMs",
+        "statusCode",
+        "clientId"
+      ],
       "required": [
-        "sku_id",
-        "sku_name"
+        "serviceName",
+        "endpoint",
+        "httpMethod",
+        "latencyMs",
+        "statusCode"
       ],
       "properties": {
-        "sku_id": {
+        "serviceName": {
           "type": "string",
-          "format": "uuid"
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "Nombre del servicio (e.g. inventory-api)"
         },
-        "sku_name": {
+        "endpoint": {
           "type": "string",
-          "maxLength": 255
+          "pattern": "^/api/v[0-9]+/[a-z0-9/_-]+$",
+          "description": "Ruta normalizada con segmentos estáticos; sin query params, IDs ni valores libres."
+        },
+        "httpMethod": {
+          "type": "string",
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ],
+          "description": "Método HTTP"
+        },
+        "latencyMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Latencia medida en milisegundos"
+        },
+        "statusCode": {
+          "type": "integer",
+          "description": "Código de respuesta HTTP"
+        },
+        "clientId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "ID de aplicación/cliente no secreto de catálogo; nunca API key, token o identificador personal."
         }
-      }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "serviceName": "inventory-api",
+          "endpoint": "/api/v1/inventory/stock",
+          "httpMethod": "GET",
+          "latencyMs": 345,
+          "statusCode": 200,
+          "clientId": "backoffice-web"
+        }
+      ]
     },
-    "lot_ref": {
-      "type": "object",
+    "api_rate_limited": {
+      "$id": "#api_rate_limited",
+      "title": "API Rate Limited",
+      "description": "Petición rechazada porque el cliente o usuario ha superado el límite de tasa configurado.",
+      "category": "rendimiento",
+      "metrics": [],
+      "pii_level": "LOW",
+      "allowlist": [
+        "clientId",
+        "endpoint",
+        "httpMethod",
+        "limitPerMinute",
+        "retryAfterSeconds",
+        "rejectedAt",
+        "quotaUsed"
+      ],
       "required": [
-        "lot_id",
-        "lot_code"
+        "endpoint",
+        "limitPerMinute",
+        "retryAfterSeconds",
+        "rejectedAt"
       ],
       "properties": {
-        "lot_id": {
+        "clientId": {
           "type": "string",
-          "format": "uuid"
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "ID de aplicación/cliente no secreto de catálogo; nunca API key, token o identificador personal."
         },
-        "lot_code": {
+        "endpoint": {
           "type": "string",
-          "maxLength": 100
+          "pattern": "^/api/v[0-9]+/[a-z0-9/_-]+$",
+          "description": "Ruta del endpoint rate-limited"
+        },
+        "httpMethod": {
+          "type": "string",
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ],
+          "description": "Método HTTP"
+        },
+        "limitPerMinute": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Límite configurado de peticiones por minuto"
+        },
+        "retryAfterSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Segundos recomendados antes de reintentar"
+        },
+        "rejectedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento del rechazo"
+        },
+        "quotaUsed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Cuota usada en la ventana de tiempo"
         }
-      }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "clientId": "backoffice-web",
+          "endpoint": "/api/v1/inventory/movements",
+          "httpMethod": "POST",
+          "limitPerMinute": 60,
+          "retryAfterSeconds": 30,
+          "rejectedAt": "2026-10-22T10:05:00.000Z",
+          "quotaUsed": 61
+        }
+      ]
     },
-    "warehouse_ref": {
-      "type": "object",
+    "deployment_duration_recorded": {
+      "$id": "#deployment_duration_recorded",
+      "title": "Deployment Duration Recorded",
+      "description": "Métrica de duración de despliegue registrada al completarse. Complementa a deployment_completed con el dato agregado.",
+      "category": "rendimiento",
+      "metrics": [
+        "M07"
+      ],
+      "pii_level": "LOW",
+      "allowlist": [
+        "deploymentId",
+        "serviceName",
+        "version",
+        "environment",
+        "durationMinutes",
+        "deployHour",
+        "dayOfWeek"
+      ],
       "required": [
-        "warehouse_id",
-        "warehouse_location"
+        "deploymentId",
+        "serviceName",
+        "durationMinutes"
       ],
       "properties": {
-        "warehouse_id": {
+        "deploymentId": {
           "type": "string",
-          "format": "uuid"
+          "format": "uuid",
+          "description": "ID único del despliegue"
         },
-        "warehouse_location": {
+        "serviceName": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "Nombre del servicio desplegado"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$",
+          "description": "Versión desplegada (semver)"
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "production",
+            "staging",
+            "development"
+          ],
+          "description": "Entorno destino"
+        },
+        "durationMinutes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Duración total en minutos"
+        },
+        "deployHour": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 23,
+          "description": "Hora del día en que se desplegó (0–23)"
+        },
+        "dayOfWeek": {
+          "type": "string",
+          "enum": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+          "description": "Día de la semana"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "deploymentId": "7a8b9c0d-1e2f-3a4b-5c6d-7e8f9a0b1c2d",
+          "serviceName": "inventory-api",
+          "version": "2.5.0",
+          "environment": "production",
+          "durationMinutes": 15,
+          "deployHour": 2,
+          "dayOfWeek": "Wednesday"
+        }
+      ]
+    },
+    "api_error_breached": {
+      "$id": "#api_error_breached",
+      "title": "API Error Breached",
+      "description": "Tasa de error de un endpoint que supera el umbral configurado (ej. >5% de 5xx en una ventana de 5 minutos).",
+      "category": "errores",
+      "metrics": [
+        "M08"
+      ],
+      "pii_level": "LOW",
+      "allowlist": [
+        "serviceName",
+        "endpoint",
+        "httpMethod",
+        "errorRate",
+        "threshold",
+        "windowMinutes",
+        "totalRequests",
+        "errorCount",
+        "breachedAt"
+      ],
+      "required": [
+        "serviceName",
+        "endpoint",
+        "errorRate",
+        "threshold",
+        "windowMinutes",
+        "totalRequests",
+        "errorCount",
+        "breachedAt"
+      ],
+      "properties": {
+        "serviceName": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "Nombre del servicio monitorizado"
+        },
+        "endpoint": {
+          "type": "string",
+          "pattern": "^/api/v[0-9]+/[a-z0-9/_-]+$",
+          "description": "Ruta normalizada con segmentos estáticos; sin query params, IDs ni valores libres."
+        },
+        "httpMethod": {
+          "type": "string",
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ],
+          "description": "Método HTTP"
+        },
+        "errorRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Tasa de error observada (0–1)"
+        },
+        "threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Umbral configurado (0–1)"
+        },
+        "windowMinutes": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Ventana de tiempo de la medición"
+        },
+        "totalRequests": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total de peticiones en la ventana"
+        },
+        "errorCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Número de errores en la ventana"
+        },
+        "breachedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento en que se superó el umbral"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "serviceName": "inventory-api",
+          "endpoint": "/api/v1/inventory/stock",
+          "httpMethod": "GET",
+          "errorRate": 0.08,
+          "threshold": 0.05,
+          "windowMinutes": 5,
+          "totalRequests": 1200,
+          "errorCount": 96,
+          "breachedAt": "2026-10-21T04:00:00.000Z"
+        }
+      ]
+    },
+    "data_validation_failed": {
+      "$id": "#data_validation_failed",
+      "title": "Data Validation Failed",
+      "description": "Petición a la API que falla validación de esquema (HTTP 422) o regla de negocio. Ayuda a detectar problemas en clientes o integraciones.",
+      "category": "errores",
+      "metrics": [],
+      "pii_level": "MEDIUM",
+      "allowlist": [
+        "clientId",
+        "endpoint",
+        "httpMethod",
+        "validationErrors",
+        "payloadStructure",
+        "rejectedAt",
+        "validationSchemaVersion"
+      ],
+      "required": [
+        "endpoint",
+        "validationErrors",
+        "rejectedAt"
+      ],
+      "properties": {
+        "clientId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "ID de aplicación/cliente no secreto de catálogo; nunca API key, token ni identificador personal."
+        },
+        "endpoint": {
+          "type": "string",
+          "pattern": "^/api/v[0-9]+/[a-z0-9/_-]+$",
+          "description": "Ruta normalizada con segmentos estáticos; sin query params, IDs ni valores libres."
+        },
+        "httpMethod": {
+          "type": "string",
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ],
+          "description": "Método HTTP"
+        },
+        "validationErrors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "field",
+              "code"
+            ],
+            "properties": {
+              "field": {
+                "type": "string",
+                "pattern": "^[a-zA-Z][a-zA-Z0-9_.]{0,63}$"
+              },
+              "code": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]*$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "description": "Lista estructural de pares campo/código controlado; no incluir valores del payload ni mensajes libres."
+        },
+        "payloadStructure": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "Nombre de la estructura esperada"
+        },
+        "rejectedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento del rechazo"
+        },
+        "validationSchemaVersion": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+$",
+          "description": "Versión del esquema de validación usado"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "clientId": "backoffice-web",
+          "endpoint": "/api/v1/inventory/movements",
+          "httpMethod": "POST",
+          "validationErrors": [
+            {
+              "field": "quantity",
+              "code": "positive_integer_required"
+            },
+            {
+              "field": "skuId",
+              "code": "required"
+            }
+          ],
+          "payloadStructure": "movement_create",
+          "rejectedAt": "2026-10-22T11:15:00.000Z",
+          "validationSchemaVersion": "1.0"
+        }
+      ]
+    },
+    "integration_failed": {
+      "$id": "#integration_failed",
+      "title": "Integration Failed",
+      "description": "Fallo en la comunicación con un sistema externo (API de transportista, SGA, ERP, proveedor cloud).",
+      "category": "errores",
+      "metrics": [],
+      "pii_level": "LOW",
+      "allowlist": [
+        "integrationName",
+        "partnerName",
+        "endpoint",
+        "httpStatus",
+        "failureReason",
+        "failedAt",
+        "retryCount",
+        "circuitBreakerStatus"
+      ],
+      "required": [
+        "integrationName",
+        "failureReason",
+        "failedAt"
+      ],
+      "properties": {
+        "integrationName": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "Nombre interno de la integración"
+        },
+        "partnerName": {
+          "type": "string",
+          "enum": ["UPS", "FedEx", "MRW", "DHL", "SEUR", "Correos", "SGA", "ERP", "cloud_provider", "other"],
+          "description": "Nombre del partner externo"
+        },
+        "endpoint": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "Identificador de ruta/integración de catálogo, no URL; nunca incluir query, host, credenciales ni tokens."
+        },
+        "httpStatus": {
+          "type": "integer",
+          "description": "Código de respuesta HTTP del externo"
+        },
+        "failureReason": {
+          "type": "string",
+          "enum": ["timeout", "upstream_unavailable", "connection_refused", "authentication_failed", "rate_limited", "invalid_response", "unknown"],
+          "description": "Código controlado del fallo; no incluir mensaje del proveedor ni texto libre."
+        },
+        "failedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento del fallo"
+        },
+        "retryCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Número de reintentos realizados"
+        },
+        "circuitBreakerStatus": {
+          "type": "string",
+          "enum": [
+            "closed",
+            "open",
+            "half_open"
+          ],
+          "description": "Estado del circuit breaker"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "integrationName": "carrier-tracking-ups",
+          "partnerName": "UPS",
+          "endpoint": "carrier_tracking_details",
+          "httpStatus": 503,
+          "failureReason": "upstream_unavailable",
+          "failedAt": "2026-10-22T09:30:00.000Z",
+          "retryCount": 3,
+          "circuitBreakerStatus": "open"
+        }
+      ]
+    },
+    "section_viewed": {
+      "$id": "#section_viewed",
+      "title": "Section Viewed",
+      "description": "Sección del backoffice o página de la web corporativa visualizada por el usuario. Se emite cuando una sección entra en el viewport.",
+      "category": "navegacion",
+      "metrics": [],
+      "pii_level": "MEDIUM",
+      "allowlist": [
+        "sectionId",
+        "sectionName",
+        "sourceApp",
+        "viewedAt",
+        "referrerSection",
+        "durationSeconds"
+      ],
+      "required": [
+        "sectionId",
+        "viewedAt"
+      ],
+      "properties": {
+        "sectionId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "ID único de la sección"
+        },
+        "sectionName": {
+          "type": "string",
+          "enum": ["dashboard", "inventory", "movements", "orders", "returns", "settings", "help", "other"],
+          "description": "Nombre descriptivo de la sección"
+        },
+        "sourceApp": {
+          "type": "string",
+          "enum": [
+            "backoffice",
+            "website"
+          ],
+          "description": "Aplicación de origen"
+        },
+        "viewedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento de visualización"
+        },
+        "referrerSection": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "Sección desde la que se navegó"
+        },
+        "durationSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Tiempo que el usuario permaneció en la sección"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "sectionId": "movements-dashboard",
+          "sectionName": "movements",
+          "sourceApp": "backoffice",
+          "viewedAt": "2026-10-22T08:05:00.000Z",
+          "referrerSection": "articles-dashboard",
+          "durationSeconds": 45
+        }
+      ]
+    },
+    "feature_used": {
+      "$id": "#feature_used",
+      "title": "Feature Used",
+      "description": "Funcionalidad concreta del backoffice utilizada por el operario. Permite medir adopción de funcionalidades y detectar infrautilización.",
+      "category": "navegacion",
+      "metrics": [],
+      "pii_level": "MEDIUM",
+      "allowlist": [
+        "featureId",
+        "featureName",
+        "actionType",
+        "usedAt",
+        "contextSection",
+        "outcome"
+      ],
+      "required": [
+        "featureId",
+        "usedAt"
+      ],
+      "properties": {
+        "featureId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "ID único de la funcionalidad"
+        },
+        "featureName": {
+          "type": "string",
+          "enum": ["article_create", "article_edit", "movement_create", "movement_edit", "order_process", "return_process", "report_export", "other"],
+          "description": "Nombre descriptivo de la funcionalidad"
+        },
+        "actionType": {
+          "type": "string",
+          "enum": [
+            "click",
+            "drag",
+            "submit",
+            "export",
+            "view"
+          ],
+          "description": "Tipo de acción"
+        },
+        "usedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento de uso"
+        },
+        "contextSection": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "Sección desde la que se usó la funcionalidad"
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "success",
+            "error",
+            "cancelled"
+          ],
+          "description": "Resultado de la acción"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "featureId": "article-create",
+          "featureName": "article_create",
+          "actionType": "click",
+          "usedAt": "2026-10-22T08:10:00.000Z",
+          "contextSection": "articles-dashboard",
+          "outcome": "success"
+        }
+      ]
+    },
+    "direct_stock_edit_rejected": {
+      "$id": "#direct_stock_edit_rejected",
+      "title": "Direct Stock Edit Rejected",
+      "description": "Intento de edición directa del stock de un artículo rechazado por el sistema. El inventario solo se modifica vía movimientos (ledger inmutable).",
+      "category": "errores",
+      "metrics": [
+        "M09"
+      ],
+      "pii_level": "MEDIUM",
+      "allowlist": [
+        "articleId",
+        "warehouseLocation",
+        "attemptedStockValue",
+        "rejectionReason",
+        "rejectedAt",
+        "sourceApp"
+      ],
+      "required": [
+        "articleId",
+        "rejectionReason",
+        "rejectedAt"
+      ],
+      "properties": {
+        "articleId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID del artículo cuyo stock se intentó modificar"
+        },
+        "warehouseLocation": {
           "type": "string",
           "enum": [
             "LA",
             "Zaragoza"
-          ]
-        }
-      }
-    },
-    "client_ref": {
-      "type": "object",
-      "required": [
-        "client_id",
-        "client_name",
-        "client_country"
-      ],
-      "properties": {
-        "client_id": {
-          "type": "string",
-          "format": "uuid"
+          ],
+          "description": "Almacén donde se intentó la edición"
         },
-        "client_name": {
-          "type": "string",
-          "maxLength": 255
+        "attemptedStockValue": {
+          "type": "integer",
+          "description": "Valor de stock que se intentó asignar"
         },
-        "client_country": {
+        "rejectionReason": {
+          "type": "string",
+          "enum": ["direct_stock_edit_not_allowed_use_movements"],
+          "description": "Motivo del rechazo (código predefinido)"
+        },
+        "rejectedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento del rechazo"
+        },
+        "sourceApp": {
           "type": "string",
           "enum": [
-            "US",
-            "ES"
-          ]
+            "backoffice",
+            "api"
+          ],
+          "description": "Aplicación desde la que se intentó la edición"
         }
-      }
-    },
-    "address_info": {
-      "type": "object",
-      "required": [
-        "street",
-        "city",
-        "country",
-        "postal_code"
-      ],
-      "properties": {
-        "street": {
-          "type": "string",
-          "maxLength": 500
-        },
-        "city": {
-          "type": "string",
-          "maxLength": 255
-        },
-        "state": {
-          "type": "string",
-          "maxLength": 255
-        },
-        "country": {
-          "type": "string",
-          "minLength": 2,
-          "maxLength": 2
-        },
-        "postal_code": {
-          "type": "string",
-          "maxLength": 20
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "articleId": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+          "warehouseLocation": "Zaragoza",
+          "attemptedStockValue": 999,
+          "rejectionReason": "direct_stock_edit_not_allowed_use_movements",
+          "rejectedAt": "2026-10-22T14:00:00.000Z",
+          "sourceApp": "backoffice"
         }
-      }
+      ]
     }
   },
-  "events": {
-    "inventory.received": {
-      "description": "Entrada de mercancía a almacén. Se emite cuando se confirma la recepción de un lote de producto de un proveedor o cliente.",
-      "version": "1.0",
-      "department": "almacen",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "sku",
-          "lot",
-          "warehouse",
-          "quantity",
-          "reason",
-          "inbound_type",
-          "inbound_ref"
-        ],
-        "properties": {
-          "sku": {
-            "$ref": "#/definitions/sku_ref"
-          },
-          "lot": {
-            "$ref": "#/definitions/lot_ref"
-          },
-          "warehouse": {
-            "$ref": "#/definitions/warehouse_ref"
-          },
-          "quantity": {
-            "type": "integer",
-            "minimum": 1,
-            "description": "Cantidad entera positiva recibida"
-          },
-          "reason": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 500,
-            "description": "Motivo obligatorio del movimiento"
-          },
-          "inbound_type": {
-            "type": "string",
-            "enum": [
-              "purchase_order",
-              "return_reconditioned",
-              "transfer",
-              "adjustment_increase"
-            ],
-            "description": "Origen de la entrada"
-          },
-          "inbound_ref": {
-            "type": "string",
-            "description": "Referencia externa (PO, devolución, etc.)"
-          },
-          "received_by": {
-            "type": "string",
-            "description": "Operario que registró la recepción"
-          },
-          "resulting_stock": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Stock resultante tras la entrada"
-          },
-          "movement_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "ID del movimiento generado"
-          }
-        }
-      },
-      "example": {
-        "event_id": "b3a1c8f0-5d6e-4a7b-9c0d-1e2f3a4b5c6d",
-        "event_type": "inventory.received",
-        "event_version": "1.0",
-        "source": "warehouse-service",
-        "timestamp": "2026-10-21T09:15:00Z",
-        "department": "almacen",
-        "warehouse": "LA",
-        "trace_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-        "user_id": "ana.whitfield@trackflow.com",
-        "client_id": "550e8400-e29b-41d4-a716-446655440001",
-        "data": {
-          "sku": {
-            "sku_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-            "sku_name": "Zapatillas Running Pro X2"
-          },
-          "lot": {
-            "lot_id": "9d3b8e1a-2c4f-6d7e-8f9a-0b1c2d3e4f5a",
-            "lot_code": "LOT-202610-001"
-          },
-          "warehouse": {
-            "warehouse_id": "1001",
-            "warehouse_location": "LA"
-          },
-          "quantity": 500,
-          "reason": "Recepción de orden de compra PO-202610-0042",
-          "inbound_type": "purchase_order",
-          "inbound_ref": "PO-202610-0042",
-          "received_by": "juan.perez@trackflow.com",
-          "resulting_stock": 1200,
-          "movement_id": "e7f8a9b0-1c2d-3e4f-5a6b-7c8d9e0f1a2b"
-        }
-      }
-    },
-    "inventory.shipped": {
-      "description": "Salida de mercancía de almacén por pedido. Se emite cuando se confirma el picking y envío de un pedido.",
-      "version": "1.0",
-      "department": "almacen",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "sku",
-          "lot",
-          "warehouse",
-          "quantity",
-          "reason",
-          "order_id",
-          "shipment_id"
-        ],
-        "properties": {
-          "sku": {
-            "$ref": "#/definitions/sku_ref"
-          },
-          "lot": {
-            "$ref": "#/definitions/lot_ref"
-          },
-          "warehouse": {
-            "$ref": "#/definitions/warehouse_ref"
-          },
-          "quantity": {
-            "type": "integer",
-            "minimum": 1,
-            "description": "Cantidad entera positiva enviada"
-          },
-          "reason": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 500,
-            "description": "Motivo obligatorio del movimiento"
-          },
-          "order_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "ID del pedido que origina la salida"
-          },
-          "shipment_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "ID del envío generado"
-          },
-          "resulting_stock": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Stock resultante tras la salida"
-          },
-          "movement_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "ID del movimiento generado"
-          },
-          "picking_time_minutes": {
-            "type": "number",
-            "minimum": 0,
-            "description": "Tiempo total de picking para este pedido (minutos)"
-          }
-        }
-      },
-      "example": {
-        "event_id": "c4b2d9e1-6e7f-5b8c-0d1e-2f3a4b5c6d7e",
-        "event_type": "inventory.shipped",
-        "event_version": "1.0",
-        "source": "warehouse-service",
-        "timestamp": "2026-10-21T14:30:00Z",
-        "department": "almacen",
-        "warehouse": "Zaragoza",
-        "trace_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
-        "user_id": "maria.lopez@trackflow.com",
-        "client_id": "550e8400-e29b-41d4-a716-446655440002",
-        "data": {
-          "sku": {
-            "sku_id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
-            "sku_name": "Camiseta Algodón Orgánico M"
-          },
-          "lot": {
-            "lot_id": "0c1d2e3f-4a5b-6c7d-8e9f-0a1b2c3d4e5f",
-            "lot_code": "LOT-202610-015"
-          },
-          "warehouse": {
-            "warehouse_id": "1002",
-            "warehouse_location": "Zaragoza"
-          },
-          "quantity": 25,
-          "reason": "Salida por pedido ORD-202610-0891",
-          "order_id": "f8e7d6c5-b4a3-2c1d-0e9f-8a7b6c5d4e3f",
-          "shipment_id": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
-          "resulting_stock": 175,
-          "movement_id": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
-          "picking_time_minutes": 12.5
-        }
-      }
-    },
-    "inventory.adjusted": {
-      "description": "Ajuste de inventario manual por operario. Se emite cuando se detecta y corrige una discrepancia.",
-      "version": "1.0",
-      "department": "almacen",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "sku",
-          "lot",
-          "warehouse",
-          "adjustment_type",
-          "quantity",
-          "reason",
-          "previous_stock",
-          "new_stock"
-        ],
-        "properties": {
-          "sku": {
-            "$ref": "#/definitions/sku_ref"
-          },
-          "lot": {
-            "$ref": "#/definitions/lot_ref"
-          },
-          "warehouse": {
-            "$ref": "#/definitions/warehouse_ref"
-          },
-          "adjustment_type": {
-            "type": "string",
-            "enum": [
-              "increase",
-              "reduce"
-            ],
-            "description": "Dirección del ajuste"
-          },
-          "quantity": {
-            "type": "integer",
-            "minimum": 1,
-            "description": "Cantidad del ajuste"
-          },
-          "reason": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 500,
-            "description": "Motivo obligatorio del ajuste"
-          },
-          "previous_stock": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Stock antes del ajuste"
-          },
-          "new_stock": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Stock después del ajuste"
-          },
-          "discrepancy_type": {
-            "type": "string",
-            "enum": [
-              "physical_count",
-              "damage",
-              "theft",
-              "system_error",
-              "other"
-            ]
-          },
-          "movement_id": {
-            "type": "string",
-            "format": "uuid"
-          }
-        }
-      },
-      "example": {
-        "event_id": "d5e6f7a8-9b0c-1d2e-3f4a-5b6c7d8e9f0a",
-        "event_type": "inventory.adjusted",
-        "event_version": "1.0",
-        "source": "warehouse-service",
-        "timestamp": "2026-10-21T16:45:00Z",
-        "department": "almacen",
-        "warehouse": "LA",
-        "trace_id": "c3d4e5f6-a7b8-9012-cdef-234567890123",
-        "user_id": "carlos.mendez@trackflow.com",
-        "client_id": "550e8400-e29b-41d4-a716-446655440001",
-        "data": {
-          "sku": {
-            "sku_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-            "sku_name": "Zapatillas Running Pro X2"
-          },
-          "lot": {
-            "lot_id": "9d3b8e1a-2c4f-6d7e-8f9a-0b1c2d3e4f5a",
-            "lot_code": "LOT-202610-001"
-          },
-          "warehouse": {
-            "warehouse_id": "1001",
-            "warehouse_location": "LA"
-          },
-          "adjustment_type": "reduce",
-          "quantity": 5,
-          "reason": "Discrepancia detectada en conteo físico semanal: 5 unidades dañadas por humedad",
-          "discrepancy_type": "damage",
-          "previous_stock": 1200,
-          "new_stock": 1195,
-          "movement_id": "2b3c4d5e-6f7a-8b9c-0d1e-2f3a4b5c6d7e"
-        }
-      }
-    },
-    "inventory.stock_low": {
-      "description": "Alerta de stock por debajo del mínimo configurable para un SKU en un almacén.",
-      "version": "1.0",
-      "department": "almacen",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "sku",
-          "warehouse",
-          "current_stock",
-          "stock_minimum",
-          "stock_safety",
-          "client_id"
-        ],
-        "properties": {
-          "sku": {
-            "$ref": "#/definitions/sku_ref"
-          },
-          "warehouse": {
-            "$ref": "#/definitions/warehouse_ref"
-          },
-          "current_stock": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "stock_minimum": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "stock_safety": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "client_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "reorder_suggested_quantity": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "days_until_stockout_estimated": {
-            "type": "integer",
-            "minimum": 0
-          }
-        }
-      },
-      "example": {
-        "event_id": "e6f7a8b9-0c1d-2e3f-4a5b-6c7d8e9f0a1b",
-        "event_type": "inventory.stock_low",
-        "event_version": "1.0",
-        "source": "inventory-monitor",
-        "timestamp": "2026-10-21T06:00:00Z",
-        "department": "almacen",
-        "warehouse": "Zaragoza",
-        "trace_id": "d4e5f6a7-b8c9-0123-defa-345678901234",
-        "client_id": "550e8400-e29b-41d4-a716-446655440002",
-        "data": {
-          "sku": {
-            "sku_id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
-            "sku_name": "Camiseta Algodón Orgánico M"
-          },
-          "warehouse": {
-            "warehouse_id": "1002",
-            "warehouse_location": "Zaragoza"
-          },
-          "current_stock": 50,
-          "stock_minimum": 100,
-          "stock_safety": 150,
-          "reorder_suggested_quantity": 300,
-          "days_until_stockout_estimated": 5
-        }
-      }
-    },
-    "inventory.stock_critical": {
-      "description": "Alerta de stock crítico con riesgo inminente de rotura para un SKU en un almacén.",
-      "version": "1.0",
-      "department": "almacen",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "sku",
-          "warehouse",
-          "current_stock",
-          "stock_minimum",
-          "client_id"
-        ],
-        "properties": {
-          "sku": {
-            "$ref": "#/definitions/sku_ref"
-          },
-          "warehouse": {
-            "$ref": "#/definitions/warehouse_ref"
-          },
-          "current_stock": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "stock_minimum": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "client_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "pending_orders_count": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Pedidos pendientes que consumen este SKU"
-          },
-          "urgent_reorder_needed": {
-            "type": "boolean"
-          }
-        }
-      },
-      "example": {
-        "event_id": "f7a8b9c0-1d2e-3f4a-5b6c-7d8e9f0a1b2c",
-        "event_type": "inventory.stock_critical",
-        "event_version": "1.0",
-        "source": "inventory-monitor",
-        "timestamp": "2026-10-21T06:00:00Z",
-        "department": "almacen",
-        "warehouse": "LA",
-        "trace_id": "e5f6a7b8-c9d0-1234-efab-456789012345",
-        "client_id": "550e8400-e29b-41d4-a716-446655440001",
-        "data": {
-          "sku": {
-            "sku_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-            "sku_name": "Zapatillas Running Pro X2"
-          },
-          "warehouse": {
-            "warehouse_id": "1001",
-            "warehouse_location": "LA"
-          },
-          "current_stock": 20,
-          "stock_minimum": 200,
-          "pending_orders_count": 15,
-          "urgent_reorder_needed": true
-        }
-      }
-    },
-    "inventory.stock_out": {
-      "description": "Evento de rotura de stock: se ha agotado el inventario de un SKU en un almacén.",
-      "version": "1.0",
-      "department": "almacen",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "sku",
-          "warehouse",
-          "current_stock",
-          "stock_minimum",
-          "affected_orders_count",
-          "client_id"
-        ],
-        "properties": {
-          "sku": {
-            "$ref": "#/definitions/sku_ref"
-          },
-          "warehouse": {
-            "$ref": "#/definitions/warehouse_ref"
-          },
-          "current_stock": {
-            "type": "integer",
-            "const": 0
-          },
-          "stock_minimum": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "client_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "affected_orders_count": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "affected_order_ids": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          "out_since": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Momento en que el stock llegó a cero"
-          }
-        }
-      },
-      "example": {
-        "event_id": "a8b9c0d1-2e3f-4a5b-6c7d-8e9f0a1b2c3d",
-        "event_type": "inventory.stock_out",
-        "event_version": "1.0",
-        "source": "inventory-monitor",
-        "timestamp": "2026-10-21T08:30:00Z",
-        "department": "almacen",
-        "warehouse": "LA",
-        "trace_id": "f6a7b8c9-d0e1-2345-fabc-567890123456",
-        "user_id": "sistema@trackflow.com",
-        "client_id": "550e8400-e29b-41d4-a716-446655440003",
-        "data": {
-          "sku": {
-            "sku_id": "b2c3d4e5-6789-01ab-cdef-2345678901bc",
-            "sku_name": "Auriculares Bluetooth Pro"
-          },
-          "warehouse": {
-            "warehouse_id": "1001",
-            "warehouse_location": "LA"
-          },
-          "current_stock": 0,
-          "stock_minimum": 300,
-          "affected_orders_count": 8,
-          "affected_order_ids": [
-            "f8e7d6c5-b4a3-2c1d-0e9f-8a7b6c5d4e3f",
-            "e7d6c5b4-a3b2-1c0d-9e8f-7a6b5c4d3e2f"
-          ],
-          "out_since": "2026-10-21T08:25:00Z"
-        }
-      }
-    },
-    "order.received": {
-      "description": "Pedido entrante de una marca. Se emite cuando un pedido llega a través de email parseado o API directa.",
-      "version": "1.0",
-      "department": "almacen",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "order_id",
-          "client",
-          "order_date",
-          "channel",
-          "total_lines",
-          "items_count"
-        ],
-        "properties": {
-          "order_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "client": {
-            "$ref": "#/definitions/client_ref"
-          },
-          "order_date": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "channel": {
-            "type": "string",
-            "enum": [
-              "email",
-              "api",
-              "manual"
-            ]
-          },
-          "total_lines": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "items_count": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "total_weight_kg": {
-            "type": "number",
-            "minimum": 0
-          },
-          "urgent": {
-            "type": "boolean",
-            "default": false
-          },
-          "destination": {
-            "$ref": "#/definitions/address_info"
-          }
-        }
-      },
-      "example": {
-        "event_id": "b9c0d1e2-3f4a-5b6c-7d8e-9f0a1b2c3d4e",
-        "event_type": "order.received",
-        "event_version": "1.0",
-        "source": "order-ingestion-service",
-        "timestamp": "2026-10-21T10:00:00Z",
-        "department": "almacen",
-        "warehouse": "LA",
-        "trace_id": "a7b8c9d0-e1f2-3456-ghij-678901234567",
-        "user_id": "sistema@trackflow.com",
-        "client_id": "550e8400-e29b-41d4-a716-446655440001",
-        "data": {
-          "order_id": "f8e7d6c5-b4a3-2c1d-0e9f-8a7b6c5d4e3f",
-          "client": {
-            "client_id": "550e8400-e29b-41d4-a716-446655440001",
-            "client_name": "SportsDirect Inc.",
-            "client_country": "US"
-          },
-          "order_date": "2026-10-21T10:00:00Z",
-          "channel": "api",
-          "total_lines": 3,
-          "items_count": 45,
-          "total_weight_kg": 22.5,
-          "urgent": false,
-          "destination": {
-            "street": "123 Main St",
-            "city": "Los Angeles",
-            "state": "CA",
-            "country": "US",
-            "postal_code": "90001"
-          }
-        }
-      }
-    },
-    "order.picking_started": {
-      "description": "Inicio de la operación de picking para un pedido. El operario escanea la primera línea del pedido.",
-      "version": "1.0",
-      "department": "almacen",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "order_id",
-          "warehouse",
-          "operator_id",
-          "started_at"
-        ],
-        "properties": {
-          "order_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "warehouse": {
-            "$ref": "#/definitions/warehouse_ref"
-          },
-          "operator_id": {
-            "type": "string"
-          },
-          "started_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "total_items": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "total_lines": {
-            "type": "integer",
-            "minimum": 1
-          }
-        }
-      },
-      "example": {
-        "event_id": "c0d1e2f3-4a5b-6c7d-8e9f-0a1b2c3d4e5f",
-        "event_type": "order.picking_started",
-        "event_version": "1.0",
-        "source": "warehouse-service",
-        "timestamp": "2026-10-21T10:05:00Z",
-        "department": "almacen",
-        "warehouse": "LA",
-        "trace_id": "a7b8c9d0-e1f2-3456-ghij-678901234567",
-        "user_id": "juan.perez@trackflow.com",
-        "data": {
-          "order_id": "f8e7d6c5-b4a3-2c1d-0e9f-8a7b6c5d4e3f",
-          "warehouse": {
-            "warehouse_id": "1001",
-            "warehouse_location": "LA"
-          },
-          "operator_id": "juan.perez@trackflow.com",
-          "started_at": "2026-10-21T10:05:00Z",
-          "total_items": 45,
-          "total_lines": 3
-        }
-      }
-    },
-    "order.picking_completed": {
-      "description": "Finalización del picking de un pedido. El operario escanea la última línea. Permite calcular M02 (tiempo de picking).",
-      "version": "1.0",
-      "department": "almacen",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "order_id",
-          "warehouse",
-          "operator_id",
-          "started_at",
-          "completed_at",
-          "picking_time_minutes"
-        ],
-        "properties": {
-          "order_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "warehouse": {
-            "$ref": "#/definitions/warehouse_ref"
-          },
-          "operator_id": {
-            "type": "string"
-          },
-          "started_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "completed_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "picking_time_minutes": {
-            "type": "number",
-            "minimum": 0,
-            "description": "Tiempo total de picking en minutos"
-          },
-          "items_picked": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "lines_completed": {
-            "type": "integer",
-            "minimum": 0
-          }
-        }
-      },
-      "example": {
-        "event_id": "d1e2f3a4-5b6c-7d8e-9f0a-1b2c3d4e5f6a",
-        "event_type": "order.picking_completed",
-        "event_version": "1.0",
-        "source": "warehouse-service",
-        "timestamp": "2026-10-21T10:17:30Z",
-        "department": "almacen",
-        "warehouse": "LA",
-        "trace_id": "a7b8c9d0-e1f2-3456-ghij-678901234567",
-        "user_id": "juan.perez@trackflow.com",
-        "data": {
-          "order_id": "f8e7d6c5-b4a3-2c1d-0e9f-8a7b6c5d4e3f",
-          "warehouse": {
-            "warehouse_id": "1001",
-            "warehouse_location": "LA"
-          },
-          "operator_id": "juan.perez@trackflow.com",
-          "started_at": "2026-10-21T10:05:00Z",
-          "completed_at": "2026-10-21T10:17:30Z",
-          "picking_time_minutes": 12.5,
-          "items_picked": 45,
-          "lines_completed": 3
-        }
-      }
-    },
-    "shipment.created": {
-      "description": "Envío creado y listo para asignación de transportista. Se emite tras finalizar el empaquetado.",
-      "version": "1.0",
-      "department": "ultima_milla",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "shipment_id",
-          "order_id",
-          "warehouse",
-          "destination",
-          "weight_kg",
-          "urgent",
-          "client"
-        ],
-        "properties": {
-          "shipment_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "order_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "warehouse": {
-            "$ref": "#/definitions/warehouse_ref"
-          },
-          "destination": {
-            "$ref": "#/definitions/address_info"
-          },
-          "weight_kg": {
-            "type": "number",
-            "minimum": 0.001
-          },
-          "dimensions_cm": {
-            "type": "object",
-            "properties": {
-              "length": {
-                "type": "number",
-                "minimum": 0
-              },
-              "width": {
-                "type": "number",
-                "minimum": 0
-              },
-              "height": {
-                "type": "number",
-                "minimum": 0
-              }
-            }
-          },
-          "urgent": {
-            "type": "boolean"
-          },
-          "client": {
-            "$ref": "#/definitions/client_ref"
-          },
-          "items_count": {
-            "type": "integer",
-            "minimum": 1
-          }
-        }
-      },
-      "example": {
-        "event_id": "e2f3a4b5-6c7d-8e9f-0a1b-2c3d4e5f6a7b",
-        "event_type": "shipment.created",
-        "event_version": "1.0",
-        "source": "shipping-service",
-        "timestamp": "2026-10-21T10:30:00Z",
-        "department": "ultima_milla",
-        "warehouse": "LA",
-        "trace_id": "a7b8c9d0-e1f2-3456-ghij-678901234567",
-        "client_id": "550e8400-e29b-41d4-a716-446655440001",
-        "data": {
-          "shipment_id": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
-          "order_id": "f8e7d6c5-b4a3-2c1d-0e9f-8a7b6c5d4e3f",
-          "warehouse": {
-            "warehouse_id": "1001",
-            "warehouse_location": "LA"
-          },
-          "destination": {
-            "street": "456 Oak Avenue",
-            "city": "San Francisco",
-            "state": "CA",
-            "country": "US",
-            "postal_code": "94102"
-          },
-          "weight_kg": 22.5,
-          "dimensions_cm": {
-            "length": 60,
-            "width": 40,
-            "height": 30
-          },
-          "urgent": false,
-          "client": {
-            "client_id": "550e8400-e29b-41d4-a716-446655440001",
-            "client_name": "SportsDirect Inc.",
-            "client_country": "US"
-          },
-          "items_count": 45
-        }
-      }
-    },
-    "shipment.carrier_assigned": {
-      "description": "Transportista asignado al envío por el motor de selección inteligente. Incluye los factores que determinaron la decisión.",
-      "version": "1.0",
-      "department": "ultima_milla",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "shipment_id",
-          "carrier_id",
-          "carrier_name",
-          "assignment_reason",
-          "estimated_cost",
-          "estimated_delivery_date"
-        ],
-        "properties": {
-          "shipment_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "carrier_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "carrier_name": {
-            "type": "string"
-          },
-          "carrier_country": {
-            "type": "string",
-            "enum": [
-              "US",
-              "ES"
-            ]
-          },
-          "assignment_reason": {
-            "type": "string",
-            "description": "Razón de la selección (mejor coste, mejor tiempo, etc.)"
-          },
-          "factors": {
-            "type": "object",
-            "properties": {
-              "destination_country": {
-                "type": "string"
-              },
-              "weight_kg": {
-                "type": "number"
-              },
-              "urgent": {
-                "type": "boolean"
-              },
-              "cost_score": {
-                "type": "number"
-              },
-              "time_score": {
-                "type": "number"
-              },
-              "reliability_score": {
-                "type": "number"
-              }
-            }
-          },
-          "estimated_cost": {
-            "type": "number",
-            "minimum": 0,
-            "description": "Coste estimado del envío en EUR"
-          },
-          "estimated_cost_per_kg": {
-            "type": "number",
-            "minimum": 0
-          },
-          "estimated_delivery_date": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "tracking_number": {
-            "type": "string"
-          }
-        }
-      },
-      "example": {
-        "event_id": "f3a4b5c6-7d8e-9f0a-1b2c-3d4e5f6a7b8c",
-        "event_type": "shipment.carrier_assigned",
-        "event_version": "1.0",
-        "source": "carrier-selection-engine",
-        "timestamp": "2026-10-21T10:32:00Z",
-        "department": "ultima_milla",
-        "warehouse": "LA",
-        "trace_id": "a7b8c9d0-e1f2-3456-ghij-678901234567",
-        "client_id": "550e8400-e29b-41d4-a716-446655440001",
-        "data": {
-          "shipment_id": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
-          "carrier_id": "c1d2e3f4-5678-90ab-cdef-1234567890ab",
-          "carrier_name": "UPS",
-          "carrier_country": "US",
-          "assignment_reason": "Best cost for weight/destination combination",
-          "factors": {
-            "destination_country": "US",
-            "weight_kg": 22.5,
-            "urgent": false,
-            "cost_score": 0.92,
-            "time_score": 0.88,
-            "reliability_score": 0.95
-          },
-          "estimated_cost": 18.75,
-          "estimated_cost_per_kg": 0.83,
-          "estimated_delivery_date": "2026-10-24T18:00:00Z",
-          "tracking_number": "1Z999AA10123456784"
-        }
-      }
-    },
-    "shipment.in_transit": {
-      "description": "Envío recogido por el transportista y en tránsito hacia el destino.",
-      "version": "1.0",
-      "department": "ultima_milla",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "shipment_id",
-          "carrier_name",
-          "tracking_number",
-          "status",
-          "timestamp_event",
-          "location"
-        ],
-        "properties": {
-          "shipment_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "carrier_name": {
-            "type": "string"
-          },
-          "tracking_number": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string",
-            "description": "Estado según API del transportista"
-          },
-          "timestamp_event": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "location": {
-            "type": "string",
-            "description": "Ubicación del paquete según el transportista"
-          },
-          "estimated_delivery_date": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "example": {
-        "event_id": "a4b5c6d7-8e9f-0a1b-2c3d-4e5f6a7b8c9d",
-        "event_type": "shipment.in_transit",
-        "event_version": "1.0",
-        "source": "carrier-tracking-service",
-        "timestamp": "2026-10-21T15:00:00Z",
-        "department": "ultima_milla",
-        "warehouse": "LA",
-        "trace_id": "a7b8c9d0-e1f2-3456-ghij-678901234567",
-        "client_id": "550e8400-e29b-41d4-a716-446655440001",
-        "data": {
-          "shipment_id": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
-          "carrier_name": "UPS",
-          "tracking_number": "1Z999AA10123456784",
-          "status": "in_transit",
-          "timestamp_event": "2026-10-21T14:45:00Z",
-          "location": "Los Angeles, CA - Sort Facility",
-          "estimated_delivery_date": "2026-10-24T18:00:00Z"
-        }
-      }
-    },
-    "shipment.delivered": {
-      "description": "Envío entregado exitosamente al consumidor final. Evento clave para calcular M01 (tasa de entrega a tiempo).",
-      "version": "1.0",
-      "department": "ultima_milla",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "shipment_id",
-          "carrier_name",
-          "tracking_number",
-          "delivered_at",
-          "delivery_signature",
-          "on_time"
-        ],
-        "properties": {
-          "shipment_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "carrier_name": {
-            "type": "string"
-          },
-          "tracking_number": {
-            "type": "string"
-          },
-          "delivered_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "promised_date": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Fecha prometida de entrega"
-          },
-          "delivery_signature": {
-            "type": "string",
-            "description": "Nombre de quien recibió"
-          },
-          "on_time": {
-            "type": "boolean",
-            "description": "True si se entregó antes o en la fecha prometida"
-          },
-          "delivery_delay_days": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Días de retraso si aplica"
-          }
-        }
-      },
-      "example": {
-        "event_id": "b5c6d7e8-9f0a-1b2c-3d4e-5f6a7b8c9d0e",
-        "event_type": "shipment.delivered",
-        "event_version": "1.0",
-        "source": "carrier-tracking-service",
-        "timestamp": "2026-10-23T14:20:00Z",
-        "department": "ultima_milla",
-        "trace_id": "a7b8c9d0-e1f2-3456-ghij-678901234567",
-        "client_id": "550e8400-e29b-41d4-a716-446655440001",
-        "data": {
-          "shipment_id": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
-          "carrier_name": "UPS",
-          "tracking_number": "1Z999AA10123456784",
-          "delivered_at": "2026-10-23T14:20:00Z",
-          "promised_date": "2026-10-24T18:00:00Z",
-          "delivery_signature": "John Smith",
-          "on_time": true,
-          "delivery_delay_days": 0
-        }
-      }
-    },
-    "shipment.delivery_failed": {
-      "description": "Intento de entrega fallido. Se emite cuando el transportista reporta un intento de entrega sin éxito.",
-      "version": "1.0",
-      "department": "ultima_milla",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "shipment_id",
-          "carrier_name",
-          "tracking_number",
-          "failure_reason",
-          "failed_at"
-        ],
-        "properties": {
-          "shipment_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "carrier_name": {
-            "type": "string"
-          },
-          "tracking_number": {
-            "type": "string"
-          },
-          "failure_reason": {
-            "type": "string",
-            "enum": [
-              "address_not_found",
-              "recipient_not_home",
-              "refused",
-              "damaged",
-              "other"
-            ]
-          },
-          "failure_detail": {
-            "type": "string"
-          },
-          "failed_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "next_attempt_date": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "attempt_count": {
-            "type": "integer",
-            "minimum": 1
-          }
-        }
-      },
-      "example": {
-        "event_id": "c6d7e8f9-0a1b-2c3d-4e5f-6a7b8c9d0e1f",
-        "event_type": "shipment.delivery_failed",
-        "event_version": "1.0",
-        "source": "carrier-tracking-service",
-        "timestamp": "2026-10-23T16:00:00Z",
-        "department": "ultima_milla",
-        "trace_id": "b8c9d0e1-f2a3-4567-hijk-789012345678",
-        "client_id": "550e8400-e29b-41d4-a716-446655440002",
-        "data": {
-          "shipment_id": "0d1e2f3a-4b5c-6d7e-8f9a-0b1c2d3e4f5a",
-          "carrier_name": "SEUR",
-          "tracking_number": "SEUR123456789",
-          "failure_reason": "recipient_not_home",
-          "failure_detail": "No se encontró a nadie en la dirección después de 3 intentos",
-          "failed_at": "2026-10-23T15:30:00Z",
-          "next_attempt_date": "2026-10-24T09:00:00Z",
-          "attempt_count": 3
-        }
-      }
-    },
-    "shipment.delayed": {
-      "description": "Envío con retraso respecto a la fecha prometida de entrega. Se emite cuando se supera la fecha estimada.",
-      "version": "1.0",
-      "department": "ultima_milla",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "shipment_id",
-          "carrier_name",
-          "tracking_number",
-          "promised_date",
-          "current_delay_hours"
-        ],
-        "properties": {
-          "shipment_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "carrier_name": {
-            "type": "string"
-          },
-          "tracking_number": {
-            "type": "string"
-          },
-          "promised_date": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "current_delay_hours": {
-            "type": "number",
-            "minimum": 0
-          },
-          "delay_reason": {
-            "type": "string"
-          },
-          "new_estimated_date": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "example": {
-        "event_id": "d7e8f9a0-1b2c-3d4e-5f6a-7b8c9d0e1f2a",
-        "event_type": "shipment.delayed",
-        "event_version": "1.0",
-        "source": "carrier-tracking-service",
-        "timestamp": "2026-10-25T10:00:00Z",
-        "department": "ultima_milla",
-        "trace_id": "c9d0e1f2-a3b4-5678-ijkl-890123456789",
-        "client_id": "550e8400-e29b-41d4-a716-446655440003",
-        "data": {
-          "shipment_id": "1e2f3a4b-5c6d-7e8f-9a0b-1c2d3e4f5a6b",
-          "carrier_name": "FedEx",
-          "tracking_number": "FDX9876543210",
-          "promised_date": "2026-10-24T18:00:00Z",
-          "current_delay_hours": 16,
-          "delay_reason": "Severe weather conditions in Midwest region",
-          "new_estimated_date": "2026-10-26T12:00:00Z"
-        }
-      }
-    },
-    "tracking.event_received": {
-      "description": "Evento de tracking recibido desde la API de un transportista. Se unifica en un formato estándar de TrackFlow.",
-      "version": "1.0",
-      "department": "ultima_milla",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "shipment_id",
-          "carrier_name",
-          "tracking_number",
-          "carrier_event_status",
-          "event_timestamp",
-          "location"
-        ],
-        "properties": {
-          "shipment_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "carrier_name": {
-            "type": "string"
-          },
-          "tracking_number": {
-            "type": "string"
-          },
-          "carrier_event_status": {
-            "type": "string",
-            "description": "Estado original del transportista"
-          },
-          "normalized_status": {
-            "type": "string",
-            "enum": [
-              "created",
-              "picked_up",
-              "in_transit",
-              "out_for_delivery",
-              "delivered",
-              "failed",
-              "exception",
-              "returned"
-            ],
-            "description": "Estado normalizado de TrackFlow"
-          },
-          "event_timestamp": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "location": {
-            "type": "string"
-          },
-          "raw_payload": {
-            "type": "object",
-            "description": "Payload original de la API del transportista para depuración"
-          }
-        }
-      },
-      "example": {
-        "event_id": "e8f9a0b1-2c3d-4e5f-6a7b-8c9d0e1f2a3b",
-        "event_type": "tracking.event_received",
-        "event_version": "1.0",
-        "source": "carrier-tracking-service",
-        "timestamp": "2026-10-22T08:00:00Z",
-        "department": "ultima_milla",
-        "trace_id": "d0e1f2a3-b4c5-6789-klmn-901234567890",
-        "client_id": "550e8400-e29b-41d4-a716-446655440001",
-        "data": {
-          "shipment_id": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
-          "carrier_name": "UPS",
-          "tracking_number": "1Z999AA10123456784",
-          "carrier_event_status": "Out for Delivery",
-          "normalized_status": "out_for_delivery",
-          "event_timestamp": "2026-10-22T07:45:00Z",
-          "location": "San Francisco, CA",
-          "raw_payload": {}
-        }
-      }
-    },
-    "carrier.performance_updated": {
-      "description": "Métricas de rendimiento de un transportista recalculadas (batch diario).",
-      "version": "1.0",
-      "department": "ultima_milla",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "carrier_id",
-          "carrier_name",
-          "period_start",
-          "period_end",
-          "metrics"
-        ],
-        "properties": {
-          "carrier_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "carrier_name": {
-            "type": "string"
-          },
-          "period_start": {
-            "type": "string",
-            "format": "date"
-          },
-          "period_end": {
-            "type": "string",
-            "format": "date"
-          },
-          "metrics": {
-            "type": "object",
-            "properties": {
-              "total_shipments": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "on_time_rate": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 1
-              },
-              "avg_delivery_days": {
-                "type": "number",
-                "minimum": 0
-              },
-              "failure_rate": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 1
-              },
-              "avg_cost_per_kg": {
-                "type": "number",
-                "minimum": 0
-              },
-              "total_cost": {
-                "type": "number",
-                "minimum": 0
-              }
-            },
-            "required": [
-              "total_shipments",
-              "on_time_rate",
-              "avg_cost_per_kg"
-            ]
-          }
-        }
-      },
-      "example": {
-        "event_id": "f9a0b1c2-3d4e-5f6a-7b8c-9d0e1f2a3b4c",
-        "event_type": "carrier.performance_updated",
-        "event_version": "1.0",
-        "source": "carrier-analytics-service",
-        "timestamp": "2026-10-21T23:59:00Z",
-        "department": "ultima_milla",
-        "trace_id": "e1f2a3b4-c5d6-7890-lmno-012345678901",
-        "data": {
-          "carrier_id": "c1d2e3f4-5678-90ab-cdef-1234567890ab",
-          "carrier_name": "UPS",
-          "period_start": "2026-10-14",
-          "period_end": "2026-10-20",
-          "metrics": {
-            "total_shipments": 1250,
-            "on_time_rate": 0.968,
-            "avg_delivery_days": 2.3,
-            "failure_rate": 0.012,
-            "avg_cost_per_kg": 0.85,
-            "total_cost": 23906.25
-          }
-        }
-      }
-    },
-    "return.requested": {
-      "description": "Solicitud de devolución iniciada por el consumidor final. Primer evento del flujo de logística inversa.",
-      "version": "1.0",
-      "department": "logistica_inversa",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "return_id",
-          "shipment_id",
-          "client",
-          "consumer_name",
-          "reason",
-          "product_value"
-        ],
-        "properties": {
-          "return_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "shipment_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "client": {
-            "$ref": "#/definitions/client_ref"
-          },
-          "consumer_name": {
-            "type": "string"
-          },
-          "consumer_email": {
-            "type": "string",
-            "format": "email"
-          },
-          "reason": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 500
-          },
-          "reason_category": {
-            "type": "string",
-            "enum": [
-              "defective",
-              "wrong_item",
-              "size_fit",
-              "changed_mind",
-              "damaged_in_transit",
-              "other"
-            ]
-          },
-          "product_value": {
-            "type": "number",
-            "minimum": 0,
-            "description": "Valor del producto en EUR"
-          },
-          "days_since_purchase": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "requested_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "sku": {
-            "$ref": "#/definitions/sku_ref"
-          }
-        }
-      },
-      "example": {
-        "event_id": "a0b1c2d3-4e5f-6a7b-8c9d-0e1f2a3b4c5d",
-        "event_type": "return.requested",
-        "event_version": "1.0",
-        "source": "return-service",
-        "timestamp": "2026-10-22T11:30:00Z",
-        "department": "logistica_inversa",
-        "trace_id": "f2a3b4c5-d6e7-8901-nopq-123456789012",
-        "client_id": "550e8400-e29b-41d4-a716-446655440001",
-        "data": {
-          "return_id": "3f4a5b6c-7d8e-9f0a-1b2c-3d4e5f6a7b8c",
-          "shipment_id": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
-          "client": {
-            "client_id": "550e8400-e29b-41d4-a716-446655440001",
-            "client_name": "SportsDirect Inc.",
-            "client_country": "US"
-          },
-          "consumer_name": "Sarah Johnson",
-          "consumer_email": "sarah.j@example.com",
-          "reason": "Product arrived with visible defect on left shoe",
-          "reason_category": "defective",
-          "product_value": 89.99,
-          "days_since_purchase": 5,
-          "requested_at": "2026-10-22T11:30:00Z",
-          "sku": {
-            "sku_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-            "sku_name": "Zapatillas Running Pro X2"
-          }
-        }
-      }
-    },
-    "return.approved": {
-      "description": "Devolución aprobada por el motor de reglas automáticas o por revisión manual.",
-      "version": "1.0",
-      "department": "logistica_inversa",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "return_id",
-          "approval_type",
-          "approved_at",
-          "auto_approved"
-        ],
-        "properties": {
-          "return_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "approval_type": {
-            "type": "string",
-            "enum": [
-              "auto",
-              "manual"
-            ]
-          },
-          "auto_approved": {
-            "type": "boolean"
-          },
-          "approved_by": {
-            "type": "string",
-            "description": "ID del sistema o agente que aprobó"
-          },
-          "approved_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "approval_rules_matched": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Reglas de aprobación que se cumplieron"
-          }
-        }
-      },
-      "example": {
-        "event_id": "b1c2d3e4-5f6a-7b8c-9d0e-1f2a3b4c5d6e",
-        "event_type": "return.approved",
-        "event_version": "1.0",
-        "source": "return-approval-engine",
-        "timestamp": "2026-10-22T11:31:00Z",
-        "department": "logistica_inversa",
-        "trace_id": "f2a3b4c5-d6e7-8901-nopq-123456789012",
-        "client_id": "550e8400-e29b-41d4-a716-446655440001",
-        "data": {
-          "return_id": "3f4a5b6c-7d8e-9f0a-1b2c-3d4e5f6a7b8c",
-          "approval_type": "auto",
-          "auto_approved": true,
-          "approved_by": "return-approval-engine-v2",
-          "approved_at": "2026-10-22T11:31:00Z",
-          "approval_rules_matched": [
-            "product_value_under_100",
-            "days_since_purchase_under_30",
-            "reason_defective_auto_approve"
-          ]
-        }
-      }
-    },
-    "return.rejected": {
-      "description": "Devolución rechazada por el motor de reglas. Se emite cuando no se cumplen los criterios de aprobación.",
-      "version": "1.0",
-      "department": "logistica_inversa",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "return_id",
-          "rejection_reason",
-          "rejected_at"
-        ],
-        "properties": {
-          "return_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "rejection_reason": {
-            "type": "string"
-          },
-          "rejected_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "rules_not_met": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "escalated_to_agent": {
-            "type": "boolean",
-            "description": "Si se escaló a agente humano para revisión"
-          }
-        }
-      },
-      "example": {
-        "event_id": "c2d3e4f5-6a7b-8c9d-0e1f-2a3b4c5d6e7f",
-        "event_type": "return.rejected",
-        "event_version": "1.0",
-        "source": "return-approval-engine",
-        "timestamp": "2026-10-22T12:00:00Z",
-        "department": "logistica_inversa",
-        "trace_id": "a3b4c5d6-e7f8-9012-opqr-234567890123",
-        "data": {
-          "return_id": "4a5b6c7d-8e9f-0a1b-2c3d-4e5f6a7b8c9d",
-          "rejection_reason": "Days since purchase exceeds maximum allowed (65 days, max 30)",
-          "rejected_at": "2026-10-22T12:00:00Z",
-          "rules_not_met": [
-            "days_since_purchase_under_30"
-          ],
-          "escalated_to_agent": false
-        }
-      }
-    },
-    "return.pickup_scheduled": {
-      "description": "Recogida del paquete de devolución asignada a un transportista.",
-      "version": "1.0",
-      "department": "logistica_inversa",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "return_id",
-          "carrier_name",
-          "pickup_date",
-          "pickup_address"
-        ],
-        "properties": {
-          "return_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "carrier_name": {
-            "type": "string"
-          },
-          "pickup_date": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "pickup_address": {
-            "$ref": "#/definitions/address_info"
-          },
-          "tracking_number": {
-            "type": "string"
-          },
-          "pickup_instructions": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "return.received_at_warehouse": {
-      "description": "Producto devuelto recibido físicamente en el almacén para su inspección.",
-      "version": "1.0",
-      "department": "logistica_inversa",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "return_id",
-          "warehouse",
-          "received_at",
-          "received_by"
-        ],
-        "properties": {
-          "return_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "warehouse": {
-            "$ref": "#/definitions/warehouse_ref"
-          },
-          "received_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "received_by": {
-            "type": "string"
-          },
-          "package_condition": {
-            "type": "string",
-            "enum": [
-              "good",
-              "damaged",
-              "open"
-            ]
-          }
-        }
-      }
-    },
-    "return.inspected": {
-      "description": "Inspección del producto devuelto completada. Puede ser asistida por IA (clasificación de foto) o realizada por un operario.",
-      "version": "1.0",
-      "department": "logistica_inversa",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "return_id",
-          "verdict",
-          "inspected_by"
-        ],
-        "properties": {
-          "return_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "verdict": {
-            "type": "string",
-            "enum": [
-              "recondition",
-              "discard"
-            ]
-          },
-          "inspected_by": {
-            "type": "string",
-            "description": "ID del operario o 'ai-inspection-service'"
-          },
-          "inspection_method": {
-            "type": "string",
-            "enum": [
-              "ai_photo",
-              "manual",
-              "hybrid"
-            ]
-          },
-          "ai_confidence_score": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1
-          },
-          "damage_level": {
-            "type": "string",
-            "enum": [
-              "none",
-              "minor",
-              "moderate",
-              "severe"
-            ]
-          },
-          "damage_description": {
-            "type": "string",
-            "maxLength": 1000
-          },
-          "photos_count": {
-            "type": "integer",
-            "minimum": 0
-          }
-        }
-      },
-      "example": {
-        "event_id": "d3e4f5a6-7b8c-9d0e-1f2a-3b4c5d6e7f8a",
-        "event_type": "return.inspected",
-        "event_version": "1.0",
-        "source": "inspection-service",
-        "timestamp": "2026-10-24T10:00:00Z",
-        "department": "logistica_inversa",
-        "warehouse": "LA",
-        "trace_id": "b4c5d6e7-f8a9-0123-pqrs-345678901234",
-        "user_id": "sofia.ramos@trackflow.com",
-        "data": {
-          "return_id": "3f4a5b6c-7d8e-9f0a-1b2c-3d4e5f6a7b8c",
-          "verdict": "recondition",
-          "inspected_by": "ai-inspection-service",
-          "inspection_method": "hybrid",
-          "ai_confidence_score": 0.94,
-          "damage_level": "minor",
-          "damage_description": "Minor scuff on left shoe, repairable with cleaning and polish",
-          "photos_count": 4
-        }
-      }
-    },
-    "return.reconditioned": {
-      "description": "Producto reacondicionado exitosamente y reingresado al inventario disponible.",
-      "version": "1.0",
-      "department": "logistica_inversa",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "return_id",
-          "sku",
-          "lot",
-          "warehouse",
-          "quantity"
-        ],
-        "properties": {
-          "return_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "sku": {
-            "$ref": "#/definitions/sku_ref"
-          },
-          "lot": {
-            "$ref": "#/definitions/lot_ref"
-          },
-          "warehouse": {
-            "$ref": "#/definitions/warehouse_ref"
-          },
-          "quantity": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "reconditioned_by": {
-            "type": "string"
-          },
-          "new_movement_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "ID del movimiento de entrada generado en inventario"
-          }
-        }
-      }
-    },
-    "return.discarded": {
-      "description": "Producto devuelto desechado definitivamente tras la inspección (no apto para reacondicionamiento).",
-      "version": "1.0",
-      "department": "logistica_inversa",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "return_id",
-          "sku",
-          "warehouse",
-          "discard_reason",
-          "quantity"
-        ],
-        "properties": {
-          "return_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "sku": {
-            "$ref": "#/definitions/sku_ref"
-          },
-          "warehouse": {
-            "$ref": "#/definitions/warehouse_ref"
-          },
-          "discard_reason": {
-            "type": "string"
-          },
-          "quantity": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "disposal_method": {
-            "type": "string",
-            "enum": [
-              "recycle",
-              "landfill",
-              "donation"
-            ]
-          },
-          "certified_by": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "ticket.created": {
-      "description": "Nuevo ticket de atención al cliente creado a partir de una consulta entrante (email, WhatsApp o teléfono).",
-      "version": "1.0",
-      "department": "cx",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "ticket_id",
-          "channel",
-          "client_type",
-          "customer_name",
-          "language",
-          "created_at"
-        ],
-        "properties": {
-          "ticket_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "channel": {
-            "type": "string",
-            "enum": [
-              "email",
-              "whatsapp",
-              "phone"
-            ]
-          },
-          "client_type": {
-            "type": "string",
-            "enum": [
-              "B2B",
-              "B2C"
-            ]
-          },
-          "customer_name": {
-            "type": "string"
-          },
-          "customer_email": {
-            "type": "string",
-            "format": "email"
-          },
-          "customer_phone": {
-            "type": "string"
-          },
-          "language": {
-            "type": "string",
-            "enum": [
-              "en",
-              "es"
-            ]
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "initial_message": {
-            "type": "string",
-            "maxLength": 5000
-          }
-        }
-      },
-      "example": {
-        "event_id": "e4f5a6b7-8c9d-0e1f-2a3b-4c5d6e7f8a9b",
-        "event_type": "ticket.created",
-        "event_version": "1.0",
-        "source": "cx-service",
-        "timestamp": "2026-10-21T09:00:00Z",
-        "department": "cx",
-        "trace_id": "c5d6e7f8-a9b0-1234-rstu-456789012345",
-        "data": {
-          "ticket_id": "5a6b7c8d-9e0f-1a2b-3c4d-5e6f7a8b9c0d",
-          "channel": "email",
-          "client_type": "B2C",
-          "customer_name": "Emily Davis",
-          "customer_email": "emily.d@example.com",
-          "language": "en",
-          "created_at": "2026-10-21T09:00:00Z",
-          "initial_message": "Hi, I would like to check the status of my order #ORD-202610-0891. It was supposed to arrive yesterday."
-        }
-      }
-    },
-    "ticket.classified": {
-      "description": "Ticket clasificado automáticamente por el sistema de IA en una categoría de consulta.",
-      "version": "1.0",
-      "department": "cx",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "ticket_id",
-          "category",
-          "subcategory",
-          "confidence"
-        ],
-        "properties": {
-          "ticket_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "category": {
-            "type": "string",
-            "enum": [
-              "tracking",
-              "return",
-              "product_info",
-              "billing",
-              "complaint",
-              "other"
-            ]
-          },
-          "subcategory": {
-            "type": "string"
-          },
-          "confidence": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1
-          },
-          "classified_by": {
-            "type": "string",
-            "description": "Modelo o servicio que clasificó"
-          },
-          "classified_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "example": {
-        "event_id": "f5a6b7c8-9d0e-1f2a-3b4c-5d6e7f8a9b0c",
-        "event_type": "ticket.classified",
-        "event_version": "1.0",
-        "source": "cx-ai-service",
-        "timestamp": "2026-10-21T09:00:30Z",
-        "department": "cx",
-        "trace_id": "c5d6e7f8-a9b0-1234-rstu-456789012345",
-        "data": {
-          "ticket_id": "5a6b7c8d-9e0f-1a2b-3c4d-5e6f7a8b9c0d",
-          "category": "tracking",
-          "subcategory": "delayed_delivery",
-          "confidence": 0.97,
-          "classified_by": "cx-classifier-v1",
-          "classified_at": "2026-10-21T09:00:30Z"
-        }
-      }
-    },
-    "ticket.auto_resolved": {
-      "description": "Ticket resuelto automáticamente por la IA sin intervención humana. Es el evento que mide M04.",
-      "version": "1.0",
-      "department": "cx",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "ticket_id",
-          "resolution_type",
-          "resolved_at",
-          "response_sent"
-        ],
-        "properties": {
-          "ticket_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "resolution_type": {
-            "type": "string",
-            "enum": [
-              "tracking_info",
-              "return_status",
-              "faq_answer",
-              "address_update",
-              "other"
-            ]
-          },
-          "resolved_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "response_sent": {
-            "type": "string",
-            "maxLength": 5000
-          },
-          "resolution_time_seconds": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Tiempo desde creación hasta resolución automática"
-          }
-        }
-      },
-      "example": {
-        "event_id": "a6b7c8d9-0e1f-2a3b-4c5d-6e7f8a9b0c1d",
-        "event_type": "ticket.auto_resolved",
-        "event_version": "1.0",
-        "source": "cx-ai-service",
-        "timestamp": "2026-10-21T09:00:35Z",
-        "department": "cx",
-        "trace_id": "c5d6e7f8-a9b0-1234-rstu-456789012345",
-        "data": {
-          "ticket_id": "5a6b7c8d-9e0f-1a2b-3c4d-5e6f7a8b9c0d",
-          "resolution_type": "tracking_info",
-          "resolved_at": "2026-10-21T09:00:35Z",
-          "response_sent": "Hello Emily, your order #ORD-202610-0891 is currently out for delivery with UPS (tracking: 1Z999AA10123456784). Estimated delivery: today by 6 PM.",
-          "resolution_time_seconds": 35
-        }
-      }
-    },
-    "ticket.escalated": {
-      "description": "Ticket escalado a agente humano porque la IA no pudo resolverlo o el cliente lo solicitó.",
-      "version": "1.0",
-      "department": "cx",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "ticket_id",
-          "escalation_reason",
-          "escalated_at"
-        ],
-        "properties": {
-          "ticket_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "escalation_reason": {
-            "type": "string",
-            "enum": [
-              "low_confidence",
-              "customer_requested",
-              "requires_human_judgment",
-              "sensitive_issue",
-              "other"
-            ]
-          },
-          "escalated_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "assigned_agent": {
-            "type": "string",
-            "description": "ID del agente humano asignado"
-          },
-          "ai_summary": {
-            "type": "string",
-            "maxLength": 2000,
-            "description": "Resumen preparado por la IA para el agente humano"
-          }
-        }
-      },
-      "example": {
-        "event_id": "b7c8d9e0-1f2a-3b4c-5d6e-7f8a9b0c1d2e",
-        "event_type": "ticket.escalated",
-        "event_version": "1.0",
-        "source": "cx-ai-service",
-        "timestamp": "2026-10-21T10:30:00Z",
-        "department": "cx",
-        "trace_id": "d6e7f8a9-b0c1-2345-stuv-567890123456",
-        "data": {
-          "ticket_id": "6b7c8d9e-0f1a-2b3c-4d5e-6f7a8b9c0d1e",
-          "escalation_reason": "requires_human_judgment",
-          "escalated_at": "2026-10-21T10:30:00Z",
-          "assigned_agent": "valentina.cruz@trackflow.com",
-          "ai_summary": "Customer is B2B client SportsDirect Inc. reporting a batch of 200 units received with water damage. Needs damage assessment and credit note processing."
-        }
-      }
-    },
-    "ticket.resolved_by_agent": {
-      "description": "Ticket resuelto por un agente humano de CX.",
-      "version": "1.0",
-      "department": "cx",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "ticket_id",
-          "resolved_by",
-          "resolved_at",
-          "resolution_notes"
-        ],
-        "properties": {
-          "ticket_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "resolved_by": {
-            "type": "string",
-            "description": "ID del agente humano"
-          },
-          "resolved_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "resolution_notes": {
-            "type": "string",
-            "maxLength": 5000
-          },
-          "resolution_time_seconds": {
-            "type": "integer",
-            "minimum": 0
-          }
-        }
-      }
-    },
-    "ticket.satisfaction_rated": {
-      "description": "Cliente califica la atención recibida. Se emite tras la encuesta post-interacción. Alimenta M10.",
-      "version": "1.0",
-      "department": "cx",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "ticket_id",
-          "rating",
-          "client_type"
-        ],
-        "properties": {
-          "ticket_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "rating": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 5
-          },
-          "client_type": {
-            "type": "string",
-            "enum": [
-              "B2B",
-              "B2C"
-            ]
-          },
-          "feedback_text": {
-            "type": "string",
-            "maxLength": 2000
-          },
-          "resolved_automatically": {
-            "type": "boolean",
-            "description": "Si el ticket fue resuelto por IA"
-          }
-        }
-      },
-      "example": {
-        "event_id": "c8d9e0f1-2a3b-4c5d-6e7f-8a9b0c1d2e3f",
-        "event_type": "ticket.satisfaction_rated",
-        "event_version": "1.0",
-        "source": "cx-service",
-        "timestamp": "2026-10-21T09:05:00Z",
-        "department": "cx",
-        "trace_id": "c5d6e7f8-a9b0-1234-rstu-456789012345",
-        "data": {
-          "ticket_id": "5a6b7c8d-9e0f-1a2b-3c4d-5e6f7a8b9c0d",
-          "rating": 5,
-          "client_type": "B2C",
-          "feedback_text": "Very fast response! Got my tracking info immediately.",
-          "resolved_automatically": true
-        }
-      }
-    },
-    "client.contract_created": {
-      "description": "Nuevo contrato con una marca registrado en el sistema.",
-      "version": "1.0",
-      "department": "comercial",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "contract_id",
-          "client",
-          "start_date",
-          "end_date",
-          "country"
-        ],
-        "properties": {
-          "contract_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "client": {
-            "$ref": "#/definitions/client_ref"
-          },
-          "start_date": {
-            "type": "string",
-            "format": "date"
-          },
-          "end_date": {
-            "type": "string",
-            "format": "date"
-          },
-          "country": {
-            "type": "string",
-            "enum": [
-              "US",
-              "ES"
-            ]
-          },
-          "contract_value_annual": {
-            "type": "number",
-            "minimum": 0
-          },
-          "account_manager": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "client.contract_renewal_approaching": {
-      "description": "Alerta de contrato próximo a renovar. Se emite a 90 y 30 días del vencimiento.",
-      "version": "1.0",
-      "department": "comercial",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "contract_id",
-          "client",
-          "end_date",
-          "days_until_expiry",
-          "health_score"
-        ],
-        "properties": {
-          "contract_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "client": {
-            "$ref": "#/definitions/client_ref"
-          },
-          "end_date": {
-            "type": "string",
-            "format": "date"
-          },
-          "days_until_expiry": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "health_score": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 10
-          },
-          "renewal_probability": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1
-          },
-          "alert_type": {
-            "type": "string",
-            "enum": [
-              "90_days",
-              "30_days"
-            ]
-          }
-        }
-      }
-    },
-    "client.contract_renewed": {
-      "description": "Contrato renovado exitosamente.",
-      "version": "1.0",
-      "department": "comercial",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "contract_id",
-          "client",
-          "new_end_date",
-          "renewed_at"
-        ],
-        "properties": {
-          "contract_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "client": {
-            "$ref": "#/definitions/client_ref"
-          },
-          "new_end_date": {
-            "type": "string",
-            "format": "date"
-          },
-          "renewed_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "renewed_by": {
-            "type": "string"
-          },
-          "contract_value_annual": {
-            "type": "number",
-            "minimum": 0
-          }
-        }
-      }
-    },
-    "client.contract_churned": {
-      "description": "Contrato no renovado (pérdida de cliente). Se emite al vencimiento sin renovación.",
-      "version": "1.0",
-      "department": "comercial",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "contract_id",
-          "client",
-          "churn_reason",
-          "churned_at"
-        ],
-        "properties": {
-          "contract_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "client": {
-            "$ref": "#/definitions/client_ref"
-          },
-          "churn_reason": {
-            "type": "string"
-          },
-          "churned_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "lost_revenue_annual": {
-            "type": "number",
-            "minimum": 0
-          }
-        }
-      }
-    },
-    "client.health_score_updated": {
-      "description": "Scoring de salud de cliente recalculado periódicamente en base a KPIs operativos y satisfacción.",
-      "version": "1.0",
-      "department": "comercial",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "client",
-          "health_score",
-          "score_components"
-        ],
-        "properties": {
-          "client": {
-            "$ref": "#/definitions/client_ref"
-          },
-          "health_score": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 10
-          },
-          "previous_score": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 10
-          },
-          "score_components": {
-            "type": "object",
-            "required": [
-              "on_time_delivery",
-              "return_rate",
-              "cx_satisfaction",
-              "volume_trend"
-            ],
-            "properties": {
-              "on_time_delivery": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 10
-              },
-              "return_rate": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 10
-              },
-              "cx_satisfaction": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 10
-              },
-              "volume_trend": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 10
-              }
-            }
-          },
-          "risk_level": {
-            "type": "string",
-            "enum": [
-              "low",
-              "medium",
-              "high",
-              "critical"
-            ]
-          },
-          "evaluated_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "example": {
-        "event_id": "d9e0f1a2-3b4c-5d6e-7f8a-9b0c1d2e3f4a",
-        "event_type": "client.health_score_updated",
-        "event_version": "1.0",
-        "source": "commercial-analytics-service",
-        "timestamp": "2026-10-21T06:00:00Z",
-        "department": "comercial",
-        "client_id": "550e8400-e29b-41d4-a716-446655440001",
-        "trace_id": "e7f8a9b0-c1d2-3456-uvwx-678901234567",
-        "data": {
-          "client": {
-            "client_id": "550e8400-e29b-41d4-a716-446655440001",
-            "client_name": "SportsDirect Inc.",
-            "client_country": "US"
-          },
-          "health_score": 8.5,
-          "previous_score": 8.2,
-          "score_components": {
-            "on_time_delivery": 8.8,
-            "return_rate": 7.5,
-            "cx_satisfaction": 9.0,
-            "volume_trend": 8.7
-          },
-          "risk_level": "low",
-          "evaluated_at": "2026-10-21T06:00:00Z"
-        }
-      }
-    },
-    "report.monthly_generated": {
-      "description": "Informe mensual de rendimiento generado automáticamente para un cliente.",
-      "version": "1.0",
-      "department": "comercial",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "report_id",
-          "client",
-          "period_month",
-          "period_year",
-          "generated_at"
-        ],
-        "properties": {
-          "report_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "client": {
-            "$ref": "#/definitions/client_ref"
-          },
-          "period_month": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 12
-          },
-          "period_year": {
-            "type": "integer",
-            "minimum": 2020
-          },
-          "generated_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "report_size_bytes": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "key_metrics_summary": {
-            "type": "object",
-            "properties": {
-              "total_orders": {
-                "type": "integer"
-              },
-              "on_time_rate": {
-                "type": "number"
-              },
-              "return_rate": {
-                "type": "number"
-              }
-            }
-          }
-        }
-      }
-    },
-    "system.service_health_changed": {
-      "description": "Cambio en el estado de salud de un servicio monitorizado.",
-      "version": "1.0",
-      "department": "tecnologia",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "service_name",
-          "previous_status",
-          "new_status",
-          "changed_at"
-        ],
-        "properties": {
-          "service_name": {
-            "type": "string"
-          },
-          "service_version": {
-            "type": "string"
-          },
-          "previous_status": {
-            "type": "string",
-            "enum": [
-              "healthy",
-              "degraded",
-              "down"
-            ]
-          },
-          "new_status": {
-            "type": "string",
-            "enum": [
-              "healthy",
-              "degraded",
-              "down"
-            ]
-          },
-          "changed_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "reason": {
-            "type": "string"
-          },
-          "response_time_ms": {
-            "type": "integer",
-            "minimum": 0
-          }
-        }
-      },
-      "example": {
-        "event_id": "e0f1a2b3-4c5d-6e7f-8a9b-0c1d2e3f4a5b",
-        "event_type": "system.service_health_changed",
-        "event_version": "1.0",
-        "source": "health-monitor",
-        "timestamp": "2026-10-21T03:15:00Z",
-        "department": "tecnologia",
-        "trace_id": "f8a9b0c1-d2e3-4567-wxyz-789012345678",
-        "data": {
-          "service_name": "inventory-api",
-          "service_version": "2.4.1",
-          "previous_status": "healthy",
-          "new_status": "degraded",
-          "changed_at": "2026-10-21T03:15:00Z",
-          "reason": "Response time exceeded threshold: 2500ms (threshold: 1000ms)",
-          "response_time_ms": 2500
-        }
-      }
-    },
-    "system.deployment_started": {
-      "description": "Inicio de despliegue de una nueva versión en un entorno.",
-      "version": "1.0",
-      "department": "tecnologia",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "deployment_id",
-          "service_name",
-          "version",
-          "environment",
-          "started_at"
-        ],
-        "properties": {
-          "deployment_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "service_name": {
-            "type": "string"
-          },
-          "version": {
-            "type": "string",
-            "description": "Nueva versión semántica"
-          },
-          "previous_version": {
-            "type": "string"
-          },
-          "environment": {
-            "type": "string",
-            "enum": [
-              "development",
-              "staging",
-              "production"
-            ]
-          },
-          "started_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "deployed_by": {
-            "type": "string"
-          },
-          "commit_sha": {
-            "type": "string"
-          },
-          "changelog_summary": {
-            "type": "string"
-          }
-        }
-      },
-      "example": {
-        "event_id": "f1a2b3c4-5d6e-7f8a-9b0c-1d2e3f4a5b6c",
-        "event_type": "system.deployment_started",
-        "event_version": "1.0",
-        "source": "ci-cd-pipeline",
-        "timestamp": "2026-10-21T02:00:00Z",
-        "department": "tecnologia",
-        "trace_id": "a9b0c1d2-e3f4-5678-xyza-890123456789",
-        "user_id": "andres.kim@trackflow.com",
-        "data": {
-          "deployment_id": "7a8b9c0d-1e2f-3a4b-5c6d-7e8f9a0b1c2d",
-          "service_name": "inventory-api",
-          "version": "2.5.0",
-          "previous_version": "2.4.1",
-          "environment": "production",
-          "started_at": "2026-10-21T02:00:00Z",
-          "deployed_by": "andres.kim@trackflow.com",
-          "commit_sha": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b",
-          "changelog_summary": "Added stock alerts endpoint, fixed inventory reconciliation bug"
-        }
-      }
-    },
-    "system.deployment_completed": {
-      "description": "Despliegue completado exitosamente. Permite calcular M07 (tiempo de deploy).",
-      "version": "1.0",
-      "department": "tecnologia",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "deployment_id",
-          "service_name",
-          "version",
-          "environment",
-          "completed_at",
-          "duration_minutes"
-        ],
-        "properties": {
-          "deployment_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "service_name": {
-            "type": "string"
-          },
-          "version": {
-            "type": "string"
-          },
-          "environment": {
-            "type": "string",
-            "enum": [
-              "development",
-              "staging",
-              "production"
-            ]
-          },
-          "completed_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "duration_minutes": {
-            "type": "number",
-            "minimum": 0,
-            "description": "Duración total del despliegue"
-          },
-          "health_check_passed": {
-            "type": "boolean"
-          }
-        }
-      },
-      "example": {
-        "event_id": "a2b3c4d5-6e7f-8a9b-0c1d-2e3f4a5b6c7d",
-        "event_type": "system.deployment_completed",
-        "event_version": "1.0",
-        "source": "ci-cd-pipeline",
-        "timestamp": "2026-10-21T02:15:00Z",
-        "department": "tecnologia",
-        "trace_id": "a9b0c1d2-e3f4-5678-xyza-890123456789",
-        "data": {
-          "deployment_id": "7a8b9c0d-1e2f-3a4b-5c6d-7e8f9a0b1c2d",
-          "service_name": "inventory-api",
-          "version": "2.5.0",
-          "environment": "production",
-          "completed_at": "2026-10-21T02:15:00Z",
-          "duration_minutes": 15,
-          "health_check_passed": true
-        }
-      }
-    },
-    "system.deployment_failed": {
-      "description": "Despliegue fallido durante el proceso de CI/CD.",
-      "version": "1.0",
-      "department": "tecnologia",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "deployment_id",
-          "service_name",
-          "version",
-          "environment",
-          "failed_at",
-          "failure_reason"
-        ],
-        "properties": {
-          "deployment_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "service_name": {
-            "type": "string"
-          },
-          "version": {
-            "type": "string"
-          },
-          "environment": {
-            "type": "string",
-            "enum": [
-              "development",
-              "staging",
-              "production"
-            ]
-          },
-          "failed_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "failure_reason": {
-            "type": "string"
-          },
-          "failure_stage": {
-            "type": "string",
-            "enum": [
-              "build",
-              "test",
-              "deploy",
-              "health_check"
-            ]
-          },
-          "rollback_initiated": {
-            "type": "boolean"
-          }
-        }
-      },
-      "example": {
-        "event_id": "b3c4d5e6-7f8a-9b0c-1d2e-3f4a5b6c7d8e",
-        "event_type": "system.deployment_failed",
-        "event_version": "1.0",
-        "source": "ci-cd-pipeline",
-        "timestamp": "2026-10-21T02:10:00Z",
-        "department": "tecnologia",
-        "trace_id": "b0c1d2e3-f4a5-6789-yzab-901234567890",
-        "data": {
-          "deployment_id": "8b9c0d1e-2f3a-4b5c-6d7e-8f9a0b1c2d3e",
-          "service_name": "order-ingestion-service",
-          "version": "1.8.2",
-          "environment": "staging",
-          "failed_at": "2026-10-21T02:10:00Z",
-          "failure_reason": "Integration tests failed: 3 of 45 tests failing on order parsing edge cases",
-          "failure_stage": "test",
-          "rollback_initiated": false
-        }
-      }
-    },
-    "system.error_rate_breach": {
-      "description": "Tasa de error de un endpoint de API que supera el umbral configurado.",
-      "version": "1.0",
-      "department": "tecnologia",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "service_name",
-          "endpoint",
-          "error_rate",
-          "threshold",
-          "window_minutes"
-        ],
-        "properties": {
-          "service_name": {
-            "type": "string"
-          },
-          "endpoint": {
-            "type": "string"
-          },
-          "http_method": {
-            "type": "string",
-            "enum": [
-              "GET",
-              "POST",
-              "PUT",
-              "DELETE",
-              "PATCH"
-            ]
-          },
-          "error_rate": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1
-          },
-          "threshold": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1
-          },
-          "window_minutes": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "total_requests": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "error_count": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "breached_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "example": {
-        "event_id": "c4d5e6f7-8a9b-0c1d-2e3f-4a5b6c7d8e9f",
-        "event_type": "system.error_rate_breach",
-        "event_version": "1.0",
-        "source": "api-monitor",
-        "timestamp": "2026-10-21T04:00:00Z",
-        "department": "tecnologia",
-        "trace_id": "c1d2e3f4-a5b6-7890-zabc-012345678901",
-        "data": {
-          "service_name": "inventory-api",
-          "endpoint": "/api/v1/inventory/stock",
-          "http_method": "GET",
-          "error_rate": 0.08,
-          "threshold": 0.05,
-          "window_minutes": 5,
-          "total_requests": 1200,
-          "error_count": 96,
-          "breached_at": "2026-10-21T04:00:00Z"
-        }
-      }
-    },
-    "system.latency_breach": {
-      "description": "Latencia de un endpoint que supera el umbral configurado.",
-      "version": "1.0",
-      "department": "tecnologia",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "service_name",
-          "endpoint",
-          "p95_latency_ms",
-          "threshold_ms",
-          "window_minutes"
-        ],
-        "properties": {
-          "service_name": {
-            "type": "string"
-          },
-          "endpoint": {
-            "type": "string"
-          },
-          "http_method": {
-            "type": "string",
-            "enum": [
-              "GET",
-              "POST",
-              "PUT",
-              "DELETE",
-              "PATCH"
-            ]
-          },
-          "p95_latency_ms": {
-            "type": "number",
-            "minimum": 0
-          },
-          "avg_latency_ms": {
-            "type": "number",
-            "minimum": 0
-          },
-          "threshold_ms": {
-            "type": "number",
-            "minimum": 0
-          },
-          "window_minutes": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "breached_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "example": {
-        "event_id": "d5e6f7a8-9b0c-1d2e-3f4a-5b6c7d8e9f0a",
-        "event_type": "system.latency_breach",
-        "event_version": "1.0",
-        "source": "api-monitor",
-        "timestamp": "2026-10-21T04:05:00Z",
-        "department": "tecnologia",
-        "trace_id": "d2e3f4a5-b6c7-8901-abcd-123456789012",
-        "data": {
-          "service_name": "inventory-api",
-          "endpoint": "/api/v1/inventory/stock",
-          "http_method": "GET",
-          "p95_latency_ms": 3200,
-          "avg_latency_ms": 1800,
-          "threshold_ms": 1000,
-          "window_minutes": 5,
-          "breached_at": "2026-10-21T04:05:00Z"
-        }
-      }
-    },
-    "system.resource_critical": {
-      "description": "Recurso de infraestructura (CPU, memoria, disco) en nivel crítico.",
-      "version": "1.0",
-      "department": "tecnologia",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "host",
-          "resource_type",
-          "current_value",
-          "threshold",
-          "unit"
-        ],
-        "properties": {
-          "host": {
-            "type": "string",
-            "description": "Nombre o IP del host"
-          },
-          "service_name": {
-            "type": "string"
-          },
-          "resource_type": {
-            "type": "string",
-            "enum": [
-              "cpu",
-              "memory",
-              "disk",
-              "network"
-            ]
-          },
-          "current_value": {
-            "type": "number",
-            "minimum": 0
-          },
-          "threshold": {
-            "type": "number",
-            "minimum": 0
-          },
-          "unit": {
-            "type": "string"
-          },
-          "detected_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "example": {
-        "event_id": "e6f7a8b9-0c1d-2e3f-4a5b-6c7d8e9f0a1b",
-        "event_type": "system.resource_critical",
-        "event_version": "1.0",
-        "source": "infra-monitor",
-        "timestamp": "2026-10-21T05:00:00Z",
-        "department": "tecnologia",
-        "trace_id": "e3f4a5b6-c7d8-9012-bcde-234567890123",
-        "data": {
-          "host": "db-primary-01",
-          "service_name": "postgresql",
-          "resource_type": "disk",
-          "current_value": 95,
-          "threshold": 90,
-          "unit": "percent",
-          "detected_at": "2026-10-21T05:00:00Z"
-        }
-      }
-    },
-    "executive.weekly_report_generated": {
-      "description": "Informe semanal ejecutivo generado automáticamente (lunes 7:00 AM). Incluye KPIs consolidados de todos los departamentos.",
-      "version": "1.0",
-      "department": "direccion",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "report_id",
-          "week_start",
-          "week_end",
-          "generated_at",
-          "kpis_summary"
-        ],
-        "properties": {
-          "report_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "week_start": {
-            "type": "string",
-            "format": "date"
-          },
-          "week_end": {
-            "type": "string",
-            "format": "date"
-          },
-          "generated_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "data_freshness_lag_seconds": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Retraso máximo de los datos en el informe. Mide M05."
-          },
-          "kpis_summary": {
-            "type": "object",
-            "properties": {
-              "on_time_delivery_rate": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 1
-              },
-              "total_orders_processed": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "return_rate": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 1
-              },
-              "cx_auto_resolution_rate": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 1
-              },
-              "average_picking_time_minutes": {
-                "type": "number",
-                "minimum": 0
-              },
-              "total_incidents": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "incidents_resolved_within_sla": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 1
-              }
-            },
-            "required": [
-              "on_time_delivery_rate",
-              "total_orders_processed"
-            ]
-          },
-          "comparison_previous_week": {
-            "type": "object",
-            "properties": {
-              "on_time_delivery_trend": {
-                "type": "string",
-                "enum": [
-                  "up",
-                  "down",
-                  "stable"
-                ]
-              },
-              "orders_volume_change_percent": {
-                "type": "number"
-              }
-            }
-          }
-        }
-      },
-      "example": {
-        "event_id": "f7a8b9c0-1d2e-3f4a-5b6c-7d8e9f0a1b2c",
-        "event_type": "executive.weekly_report_generated",
-        "event_version": "1.0",
-        "source": "executive-reporting-service",
-        "timestamp": "2026-10-21T07:00:00Z",
-        "department": "direccion",
-        "trace_id": "f4a5b6c7-d8e9-0123-cdef-345678901234",
-        "data": {
-          "report_id": "9c0d1e2f-3a4b-5c6d-7e8f-9a0b1c2d3e4f",
-          "week_start": "2026-10-14",
-          "week_end": "2026-10-20",
-          "generated_at": "2026-10-21T07:00:00Z",
-          "data_freshness_lag_seconds": 120,
-          "kpis_summary": {
-            "on_time_delivery_rate": 0.968,
-            "total_orders_processed": 4820,
-            "return_rate": 0.21,
-            "cx_auto_resolution_rate": 0.64,
-            "average_picking_time_minutes": 13.2,
-            "total_incidents": 23,
-            "incidents_resolved_within_sla": 0.957
-          },
-          "comparison_previous_week": {
-            "on_time_delivery_trend": "up",
-            "orders_volume_change_percent": 3.2
-          }
-        }
-      }
-    },
-    "executive.alert_triggered": {
-      "description": "Alerta ejecutiva por desviación significativa en un KPI crítico que requiere atención del CEO.",
-      "version": "1.0",
-      "department": "direccion",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "alert_id",
-          "kpi_name",
-          "current_value",
-          "threshold",
-          "severity"
-        ],
-        "properties": {
-          "alert_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "kpi_name": {
-            "type": "string"
-          },
-          "current_value": {
-            "type": "number"
-          },
-          "expected_value": {
-            "type": "number"
-          },
-          "threshold": {
-            "type": "number"
-          },
-          "severity": {
-            "type": "string",
-            "enum": [
-              "warning",
-              "critical",
-              "blocker"
-            ]
-          },
-          "department": {
-            "type": "string"
-          },
-          "affected_clients": {
-            "type": "array",
-            "items": {
-              "$ref": "#/definitions/client_ref"
-            }
-          },
-          "recommended_action": {
-            "type": "string"
-          },
-          "triggered_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "example": {
-        "event_id": "a8b9c0d1-2e3f-4a5b-6c7d-8e9f0a1b2c3d",
-        "event_type": "executive.alert_triggered",
-        "event_version": "1.0",
-        "source": "executive-monitor",
-        "timestamp": "2026-10-21T08:00:00Z",
-        "department": "direccion",
-        "trace_id": "a5b6c7d8-e9f0-1234-defg-456789012345",
-        "data": {
-          "alert_id": "0d1e2f3a-4b5c-6d7e-8f9a-0b1c2d3e4f5a",
-          "kpi_name": "on_time_delivery_rate",
-          "current_value": 0.89,
-          "expected_value": 0.97,
-          "threshold": 0.92,
-          "severity": "critical",
-          "department": "ultima_milla",
-          "affected_clients": [
-            {
-              "client_id": "550e8400-e29b-41d4-a716-446655440001",
-              "client_name": "SportsDirect Inc.",
-              "client_country": "US"
-            }
-          ],
-          "recommended_action": "Review carrier assignments for LA warehouse routes to East Coast",
-          "triggered_at": "2026-10-21T08:00:00Z"
-        }
-      }
-    },
-    "executive.kpi_breach": {
-      "description": "KPI que ha caído por debajo del umbral mínimo aceptable. Requiere acción inmediata.",
-      "version": "1.0",
-      "department": "direccion",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "kpi_id",
-          "kpi_name",
-          "metric_id",
-          "current_value",
-          "minimum_acceptable",
-          "breach_severity"
-        ],
-        "properties": {
-          "kpi_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "kpi_name": {
-            "type": "string"
-          },
-          "metric_id": {
-            "type": "string",
-            "enum": [
-              "M01",
-              "M02",
-              "M03",
-              "M04",
-              "M05",
-              "M06",
-              "M07",
-              "M08",
-              "M09",
-              "M10"
-            ]
-          },
-          "current_value": {
-            "type": "number"
-          },
-          "minimum_acceptable": {
-            "type": "number"
-          },
-          "breach_severity": {
-            "type": "string",
-            "enum": [
-              "warning",
-              "critical"
-            ]
-          },
-          "department_owner": {
-            "type": "string"
-          },
-          "breached_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "breach_duration_hours": {
-            "type": "number",
-            "minimum": 0
-          }
-        }
-      },
-      "example": {
-        "event_id": "b9c0d1e2-3f4a-5b6c-7d8e-9f0a1b2c3d4e",
-        "event_type": "executive.kpi_breach",
-        "event_version": "1.0",
-        "source": "executive-monitor",
-        "timestamp": "2026-10-21T08:00:00Z",
-        "department": "direccion",
-        "trace_id": "b6c7d8e9-f0a1-2345-efgh-567890123456",
-        "data": {
-          "kpi_id": "1e2f3a4b-5c6d-7e8f-9a0b-1c2d3e4f5a6b",
-          "kpi_name": "Tasa de entrega a tiempo",
-          "metric_id": "M01",
-          "current_value": 0.89,
-          "minimum_acceptable": 0.92,
-          "breach_severity": "critical",
-          "department_owner": "ultima_milla",
-          "breached_at": "2026-10-21T08:00:00Z",
-          "breach_duration_hours": 0
-        }
-      }
-    },
-    "frontend.auth.login_attempted": {
-      "description": "Intento de inicio de sesión en el backoffice. Se emite cuando el usuario introduce credenciales y pulsa 'Entrar'. Requiere que el backoffice tenga autenticación implementada.",
-      "version": "1.0",
-      "department": "frontend",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "username",
-          "ip_address",
-          "attempted_at"
-        ],
-        "properties": {
-          "username": {
-            "type": "string",
-            "description": "Nombre de usuario o email introducido"
-          },
-          "ip_address": {
-            "type": "string",
-            "format": "ipv4",
-            "description": "Dirección IP desde la que se intenta acceder"
-          },
-          "user_agent": {
-            "type": "string",
-            "description": "User-Agent del navegador"
-          },
-          "attempted_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "consecutive_failures": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Fallos consecutivos acumulados para esta IP/usuario"
-          }
-        }
-      }
-    },
-    "frontend.auth.login_succeeded": {
-      "description": "Inicio de sesión exitoso en el backoffice. Se emite tras verificar credenciales correctamente.",
-      "version": "1.0",
-      "department": "frontend",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "user_id",
-          "username",
-          "login_at",
-          "role"
-        ],
-        "properties": {
-          "user_id": {
-            "type": "string",
-            "description": "Identificador único del operario"
-          },
-          "username": {
-            "type": "string"
-          },
-          "role": {
-            "type": "string",
-            "description": "Rol del operario (admin, operator, viewer)"
-          },
-          "login_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "ip_address": {
-            "type": "string"
-          },
-          "session_id": {
-            "type": "string",
-            "description": "ID de sesión generada"
-          }
-        }
-      }
-    },
-    "frontend.auth.login_failed": {
-      "description": "Fallo de autenticación por credenciales incorrectas o usuario no encontrado.",
-      "version": "1.0",
-      "department": "frontend",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "username",
-          "failure_reason",
-          "failed_at"
-        ],
-        "properties": {
-          "username": {
-            "type": "string"
-          },
-          "failure_reason": {
-            "type": "string",
-            "enum": [
-              "invalid_credentials",
-              "user_not_found",
-              "account_locked",
-              "expired_password"
-            ]
-          },
-          "failed_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "ip_address": {
-            "type": "string"
-          },
-          "consecutive_failures": {
-            "type": "integer",
-            "minimum": 1
-          }
-        }
-      }
-    },
-    "frontend.auth.session_expired": {
-      "description": "Sesión de operario expirada por inactividad o por superar el TTL máximo.",
-      "version": "1.0",
-      "department": "frontend",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "user_id",
-          "session_id",
-          "expired_at",
-          "inactivity_minutes"
-        ],
-        "properties": {
-          "user_id": {
-            "type": "string"
-          },
-          "session_id": {
-            "type": "string"
-          },
-          "expired_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "started_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "inactivity_minutes": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Minutos de inactividad antes de expirar"
-          },
-          "current_view": {
-            "type": "string",
-            "description": "Vista en la que estaba el operario cuando expiró la sesión"
-          }
-        }
-      }
-    },
-    "frontend.auth.logout": {
-      "description": "Cierre de sesión voluntario del operario. Permite calcular tiempo efectivo de uso de la plataforma.",
-      "version": "1.0",
-      "department": "frontend",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "user_id",
-          "session_id",
-          "logout_at",
-          "session_duration_minutes"
-        ],
-        "properties": {
-          "user_id": {
-            "type": "string"
-          },
-          "session_id": {
-            "type": "string"
-          },
-          "logout_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "login_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "session_duration_minutes": {
-            "type": "integer",
-            "minimum": 0
-          }
-        }
-      }
-    },
-    "frontend.api_request_completed": {
-      "description": "Petición a la API completada desde el backoffice. Incluye duración real y código de respuesta. Permite monitorizar M08 desde la perspectiva del operario.",
-      "version": "1.0",
-      "department": "frontend",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "method",
-          "endpoint",
-          "status_code",
-          "duration_ms",
-          "timestamp"
-        ],
-        "properties": {
-          "method": {
-            "type": "string",
-            "enum": [
-              "GET",
-              "POST",
-              "PUT",
-              "DELETE"
-            ]
-          },
-          "endpoint": {
-            "type": "string",
-            "description": "Ruta de la API consultada (ej. /articles/, /inventory/movements)"
-          },
-          "status_code": {
-            "type": "integer",
-            "minimum": 100,
-            "maximum": 599
-          },
-          "duration_ms": {
-            "type": "number",
-            "minimum": 0,
-            "description": "Tiempo de respuesta en milisegundos"
-          },
-          "timestamp": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "request_key": {
-            "type": "string",
-            "description": "UUID de idempotencia si aplica"
-          },
-          "response_size_bytes": {
-            "type": "integer",
-            "minimum": 0
-          }
-        }
-      }
-    },
-    "frontend.api_request_failed": {
-      "description": "Petición a la API fallida por error de red, timeout o respuesta 5xx desde el servidor.",
-      "version": "1.0",
-      "department": "frontend",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "method",
-          "endpoint",
-          "failure_type",
-          "failed_at"
-        ],
-        "properties": {
-          "method": {
-            "type": "string",
-            "enum": [
-              "GET",
-              "POST",
-              "PUT",
-              "DELETE"
-            ]
-          },
-          "endpoint": {
-            "type": "string"
-          },
-          "failure_type": {
-            "type": "string",
-            "enum": [
-              "network_error",
-              "timeout",
-              "server_error_5xx",
-              "aborted"
-            ]
-          },
-          "status_code": {
-            "type": "integer",
-            "maximum": 599
-          },
-          "error_message": {
-            "type": "string",
-            "maxLength": 500
-          },
-          "duration_ms": {
-            "type": "number",
-            "minimum": 0
-          },
-          "failed_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "retry_attempted": {
-            "type": "boolean"
-          }
-        }
-      }
-    },
-    "frontend.slow_request_detected": {
-      "description": "Petición que supera el umbral de lentitud configurable (3s por defecto). Ayuda a priorizar optimizaciones de endpoints.",
-      "version": "1.0",
-      "department": "frontend",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "method",
-          "endpoint",
-          "duration_ms",
-          "threshold_ms"
-        ],
-        "properties": {
-          "method": {
-            "type": "string",
-            "enum": [
-              "GET",
-              "POST",
-              "PUT",
-              "DELETE"
-            ]
-          },
-          "endpoint": {
-            "type": "string"
-          },
-          "duration_ms": {
-            "type": "number",
-            "minimum": 0
-          },
-          "threshold_ms": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "status_code": {
-            "type": "integer"
-          },
-          "timestamp": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "user_id": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "frontend.domain_load_time": {
-      "description": "Tiempo de carga completo del backoffice medido desde el navegador (evento load).",
-      "version": "1.0",
-      "department": "frontend",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "load_time_ms",
-          "dom_content_loaded_ms",
-          "loaded_at"
-        ],
-        "properties": {
-          "load_time_ms": {
-            "type": "number",
-            "minimum": 0,
-            "description": "Tiempo total hasta window.onload"
-          },
-          "dom_content_loaded_ms": {
-            "type": "number",
-            "minimum": 0,
-            "description": "Tiempo hasta DOMContentLoaded"
-          },
-          "loaded_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "view": {
-            "type": "string",
-            "description": "Vista inicial cargada"
-          },
-          "user_agent": {
-            "type": "string"
-          },
-          "api_connectivity_ms": {
-            "type": "number",
-            "minimum": 0,
-            "description": "Tiempo del primer health check a la API"
-          }
-        }
-      }
-    },
-    "frontend.api_connection_lost": {
-      "description": "Conexión con la API interrumpida durante la jornada. Se emite cuando el health check del frontend falla consecutivamente.",
-      "version": "1.0",
-      "department": "frontend",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "last_successful_at",
-          "detected_at",
-          "consecutive_failures"
-        ],
-        "properties": {
-          "last_successful_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "detected_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "consecutive_failures": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "current_view": {
-            "type": "string"
-          },
-          "user_id": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "frontend.uncaught_error": {
-      "description": "Error de JavaScript no capturado en el backoffice. Capturado mediante window.onerror.",
-      "version": "1.0",
-      "department": "frontend",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "message",
-          "source",
-          "line",
-          "column",
-          "occurred_at"
-        ],
-        "properties": {
-          "message": {
-            "type": "string",
-            "maxLength": 1000,
-            "description": "Mensaje del error"
-          },
-          "source": {
-            "type": "string",
-            "description": "URL del script donde ocurrió"
-          },
-          "line": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "column": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "stack_trace": {
-            "type": "string"
-          },
-          "occurred_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "current_view": {
-            "type": "string"
-          },
-          "user_id": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "frontend.unhandled_promise_rejection": {
-      "description": "Promesa rechazada sin bloque catch. Capturado mediante window.onunhandledrejection. Indica código que falla silenciosamente.",
-      "version": "1.0",
-      "department": "frontend",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "reason",
-          "occurred_at"
-        ],
-        "properties": {
-          "reason": {
-            "type": "string",
-            "maxLength": 1000,
-            "description": "Motivo del rechazo"
-          },
-          "stack_trace": {
-            "type": "string"
-          },
-          "occurred_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "current_view": {
-            "type": "string"
-          },
-          "user_id": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "frontend.http_validation_error": {
-      "description": "Error de validación HTTP 422 recibido desde la API. Indica que el frontend envió datos inválidos.",
-      "version": "1.0",
-      "department": "frontend",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "method",
-          "endpoint",
-          "detail",
-          "occurred_at"
-        ],
-        "properties": {
-          "method": {
-            "type": "string",
-            "enum": [
-              "GET",
-              "POST",
-              "PUT",
-              "DELETE"
-            ]
-          },
-          "endpoint": {
-            "type": "string"
-          },
-          "detail": {
-            "type": "string",
-            "description": "Mensaje de error devuelto por la API (body.detail)"
-          },
-          "validation_errors": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "loc": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "msg": {
-                  "type": "string"
-                },
-                "type": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "occurred_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "user_id": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "frontend.toast_displayed": {
-      "description": "Toast de error mostrado al operario en el backoffice. Permite medir fricción en la UX.",
-      "version": "1.0",
-      "department": "frontend",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "message",
-          "is_error",
-          "displayed_at"
-        ],
-        "properties": {
-          "message": {
-            "type": "string",
-            "maxLength": 500
-          },
-          "is_error": {
-            "type": "boolean"
-          },
-          "displayed_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "current_view": {
-            "type": "string"
-          },
-          "user_id": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "frontend.view_changed": {
-      "description": "Cambio de vista en el backoffice. Se emite al ejecutar switchView(). Permite medir patrones de navegación de los operarios.",
-      "version": "1.0",
-      "department": "frontend",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "from_view",
-          "to_view",
-          "changed_at"
-        ],
-        "properties": {
-          "from_view": {
-            "type": "string",
-            "description": "Vista anterior"
-          },
-          "to_view": {
-            "type": "string",
-            "enum": [
-              "dashboard",
-              "inventory",
-              "company"
-            ],
-            "description": "Nueva vista"
-          },
-          "changed_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "user_id": {
-            "type": "string"
-          },
-          "time_since_last_nav_seconds": {
-            "type": "number",
-            "minimum": 0
-          }
-        }
-      }
-    },
-    "frontend.feature_used": {
-      "description": "Uso de una funcionalidad concreta del backoffice. Se emite al hacer clic en botones de acción.",
-      "version": "1.0",
-      "department": "frontend",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "feature",
-          "action",
-          "used_at"
-        ],
-        "properties": {
-          "feature": {
-            "type": "string",
-            "enum": [
-              "refresh",
-              "new_article",
-              "edit_article",
-              "deactivate_article",
-              "new_movement",
-              "new_lot",
-              "search"
-            ]
-          },
-          "action": {
-            "type": "string",
-            "description": "Acción específica (click, submit, confirm)"
-          },
-          "used_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "current_view": {
-            "type": "string"
-          },
-          "user_id": {
-            "type": "string"
-          },
-          "context": {
-            "type": "object",
-            "description": "Contexto adicional (SKU afectado, etc.)"
-          }
-        }
-      }
-    },
-    "frontend.flow_abandoned": {
-      "description": "Diálogo modal abierto y cerrado sin completar la acción. Indica fricción en la UX del formulario.",
-      "version": "1.0",
-      "department": "frontend",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "dialog_type",
-          "opened_at",
-          "closed_at",
-          "duration_seconds"
-        ],
-        "properties": {
-          "dialog_type": {
-            "type": "string",
-            "enum": [
-              "new_article",
-              "edit_article",
-              "new_movement",
-              "new_lot"
-            ]
-          },
-          "opened_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "closed_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "duration_seconds": {
-            "type": "number",
-            "minimum": 0
-          },
-          "user_id": {
-            "type": "string"
-          },
-          "has_unsaved_data": {
-            "type": "boolean",
-            "description": "Si el operario había introducido datos antes de cerrar"
-          }
-        }
-      }
-    },
-    "frontend.article_search_performed": {
-      "description": "Búsqueda de artículos en la tabla de inventario mediante el campo de búsqueda.",
-      "version": "1.0",
-      "department": "frontend",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "query",
-          "result_count",
-          "searched_at"
-        ],
-        "properties": {
-          "query": {
-            "type": "string",
-            "maxLength": 200,
-            "description": "Término de búsqueda introducido (anonimizado si contiene datos sensibles)"
-          },
-          "result_count": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "no_results": {
-            "type": "boolean",
-            "description": "True si la búsqueda no devolvió resultados"
-          },
-          "searched_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "user_id": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "frontend.nav_item_disabled_clicked": {
-      "description": "Intento de acceder a una sección deshabilitada del backoffice (Pedidos, Envíos). Indica demanda de funcionalidad.",
-      "version": "1.0",
-      "department": "frontend",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "nav_item",
-          "clicked_at"
-        ],
-        "properties": {
-          "nav_item": {
-            "type": "string",
-            "enum": [
-              "orders",
-              "shipments"
-            ]
-          },
-          "clicked_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "user_id": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "frontend.movement_form_opened": {
-      "description": "Formulario de registro de movimiento abierto. Incluye el tipo de movimiento seleccionado por defecto.",
-      "version": "1.0",
-      "department": "frontend",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "default_type",
-          "opened_at"
-        ],
-        "properties": {
-          "default_type": {
-            "type": "string",
-            "enum": [
-              "entrada",
-              "salida",
-              "ajuste"
-            ]
-          },
-          "opened_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "user_id": {
-            "type": "string"
-          },
-          "sku_count": {
-            "type": "integer",
-            "description": "Número de artículos activos disponibles en el selector"
-          }
-        }
-      }
-    },
-    "frontend.movement_registration_cancelled": {
-      "description": "Registro de movimiento cancelado: el diálogo se cerró sin guardar. Indica fricción en el formulario de movimientos.",
-      "version": "1.0",
-      "department": "frontend",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "opened_at",
-          "cancelled_at",
-          "duration_seconds"
-        ],
-        "properties": {
-          "opened_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "cancelled_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "duration_seconds": {
-            "type": "number",
-            "minimum": 0
-          },
-          "movement_type": {
-            "type": "string",
-            "enum": [
-              "entrada",
-              "salida",
-              "ajuste"
-            ]
-          },
-          "user_id": {
-            "type": "string"
-          },
-          "has_filled_fields": {
-            "type": "boolean",
-            "description": "Si el operario había completado algún campo antes de cancelar"
-          }
-        }
-      }
-    },
-    "frontend.article_deactivation_confirmed": {
-      "description": "Confirmación de baja de artículo completada. Permite auditar el ciclo de vida del catálogo.",
-      "version": "1.0",
-      "department": "frontend",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "sku",
-          "deactivated_at"
-        ],
-        "properties": {
-          "sku": {
-            "type": "string"
-          },
-          "article_name": {
-            "type": "string"
-          },
-          "deactivated_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "user_id": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "website.contact_form_submitted": {
-      "description": "Formulario de contacto del sitio web corporativo enviado por un visitante. Genera lead comercial.",
-      "version": "1.0",
-      "department": "website",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "submitted_at"
-        ],
-        "properties": {
-          "submitted_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "source_section": {
-            "type": "string",
-            "description": "Sección de la web desde la que se envió el formulario"
-          },
-          "referrer": {
-            "type": "string",
-            "description": "URL de origen del visitante"
-          },
-          "country_hint": {
-            "type": "string",
-            "description": "País inferido por IP (no almacenamos IP directamente)"
-          }
-        }
-      }
-    },
-    "website.section_viewed": {
-      "description": "Sección de la web corporativa visualizada por un visitante. Medido mediante IntersectionObserver. Permite entender qué contenido atrae más atención.",
-      "version": "1.0",
-      "department": "website",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "section",
-          "viewed_at"
-        ],
-        "properties": {
-          "section": {
-            "type": "string",
-            "enum": [
-              "about",
-              "services",
-              "global",
-              "team",
-              "contact"
-            ]
-          },
-          "viewed_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "time_on_page_seconds": {
-            "type": "number",
-            "minimum": 0
-          },
-          "session_id": {
-            "type": "string",
-            "description": "ID de sesión anónima del visitante"
-          }
-        }
-      }
-    },
-    "website.navigation_clicked": {
-      "description": "Click en enlace del menú de navegación principal del sitio web corporativo.",
-      "version": "1.0",
-      "department": "website",
-      "data_schema": {
-        "type": "object",
-        "required": [
-          "target_section",
-          "clicked_at"
-        ],
-        "properties": {
-          "target_section": {
-            "type": "string",
-            "description": "Sección destino del enlace"
-          },
-          "clicked_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "session_id": {
-            "type": "string"
-          },
-          "is_cta": {
-            "type": "boolean",
-            "description": "Si el enlace es el CTA de contacto"
-          }
-        }
-      }
-    }
+  "validation_rules": {
+    "idempotency": "Si se recibe un eventId ya registrado, se ignora (no es error). El emisor puede reintentar sin riesgo.",
+    "timestamp_skew": "No se aceptan eventos con timestamp futuro (> 5 min de skew) ni con más de 24 h de antigüedad.",
+    "allowlist_strict": "El validador inspecciona properties y rechaza cualquier clave no listada en el allowlist del event_type. Esto previene fugas accidentales de datos (PII, credenciales, información interna).",
+    "required_fields": "Si falta cualquiera de los 8 campos del envelope, el evento se rechaza con 422 Unprocessable Entity.",
+    "pii_sanitization": "Campos marcados como PII directa (🔴) deben ser anonimizados antes de persistir. PII indirecta (🟡) debe tener acceso restringido según política de la compañía."
   },
-  "event_list": [
-    "inventory.received",
-    "inventory.shipped",
-    "inventory.adjusted",
-    "inventory.stock_low",
-    "inventory.stock_critical",
-    "inventory.stock_out",
-    "order.received",
-    "order.picking_started",
-    "order.picking_completed",
-    "shipment.created",
-    "shipment.carrier_assigned",
-    "shipment.in_transit",
-    "shipment.delivered",
-    "shipment.delivery_failed",
-    "shipment.delayed",
-    "tracking.event_received",
-    "carrier.performance_updated",
-    "return.requested",
-    "return.approved",
-    "return.rejected",
-    "return.pickup_scheduled",
-    "return.received_at_warehouse",
-    "return.inspected",
-    "return.reconditioned",
-    "return.discarded",
-    "ticket.created",
-    "ticket.classified",
-    "ticket.auto_resolved",
-    "ticket.escalated",
-    "ticket.resolved_by_agent",
-    "ticket.satisfaction_rated",
-    "client.contract_created",
-    "client.contract_renewal_approaching",
-    "client.contract_renewed",
-    "client.contract_churned",
-    "client.health_score_updated",
-    "report.monthly_generated",
-    "system.service_health_changed",
-    "system.deployment_started",
-    "system.deployment_completed",
-    "system.deployment_failed",
-    "system.error_rate_breach",
-    "system.latency_breach",
-    "system.resource_critical",
-    "executive.weekly_report_generated",
-    "executive.alert_triggered",
-    "executive.kpi_breach",
-    "frontend.auth.login_attempted",
-    "frontend.auth.login_succeeded",
-    "frontend.auth.login_failed",
-    "frontend.auth.session_expired",
-    "frontend.auth.logout",
-    "frontend.api_request_completed",
-    "frontend.api_request_failed",
-    "frontend.slow_request_detected",
-    "frontend.domain_load_time",
-    "frontend.api_connection_lost",
-    "frontend.uncaught_error",
-    "frontend.unhandled_promise_rejection",
-    "frontend.http_validation_error",
-    "frontend.toast_displayed",
-    "frontend.view_changed",
-    "frontend.feature_used",
-    "frontend.flow_abandoned",
-    "frontend.article_search_performed",
-    "frontend.nav_item_disabled_clicked",
-    "frontend.movement_form_opened",
-    "frontend.movement_registration_cancelled",
-    "frontend.article_deactivation_confirmed",
-    "website.contact_form_submitted",
-    "website.section_viewed",
-    "website.navigation_clicked"
+  "changelog": [
+    {
+      "version": "2.0",
+      "date": "2026-10-22",
+      "changes": [
+        "Migración de envelope legacy (event_id, event_version, source, department, trace_id, data) a nuevo estándar camelCase (eventId, schemaVersion, sessionId, requestId, properties)",
+        "Taxonomía unificada a entidad_accion (snake_case con verbos en pasado)",
+        "22 schemas de eventos: 10 obligatorios (M01–M10) + 12 adicionales (autenticación, rendimiento, errores, navegación)",
+        "Añadido campo pii_level por evento (LOW / MEDIUM / HIGH)",
+        "Añadido campo allowlist explícito por evento",
+        "Añadido campo required (propiedades obligatorias dentro del objeto properties)",
+        "Añadido campo examples (ejemplos de properties válidas)",
+        "Definiciones reutilizables: sku_ref, warehouse_ref, client_ref, address_ref, carrier_ref",
+        "Sección validation_rules con reglas de idempotencia, timestamp skew, allowlist estricto y sanitización PII",
+        "Eliminado: paginated_response (no pertenece al schema de eventos), warehouse/client de la raíz del envelope"
+      ]
+    },
+    {
+      "version": "1.0",
+      "date": "2026-10-21",
+      "changes": [
+        "Versión inicial del catálogo de eventos con envelope legacy"
+      ]
+    }
   ]
 }
