@@ -11,6 +11,10 @@
 | Migraciones | Alembic | Versionada |
 | Testing | pytest + httpx | Test client async |
 | Frontend backoffice | Web (separado en `uis/backoffice`) | Consume API REST |
+| Frontend corporativo | Web (separado en `uis/website`) | Sitio corporativo |
+| Iconos | Lucide (CDN v0.468.0) | Helper compartido en `uis/shared/lucide-helper.js` |
+| Fuentes | Google Fonts (DM Sans + IBM Plex Mono) | `display=swap` en URL |
+| Serving estático | serve ^14.2.0 | npm package en `uis/` |
 
 ## Decisiones técnicas (del plan)
 

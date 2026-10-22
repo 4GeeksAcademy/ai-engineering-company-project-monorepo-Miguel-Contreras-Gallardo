@@ -1,7 +1,6 @@
 // TrackFlow Website — Corporate site
 
 window.addEventListener("DOMContentLoaded", () => {
-  lucide.createIcons();
 
   // Mobile menu toggle
   const toggle = document.getElementById("menu-toggle");
@@ -13,7 +12,7 @@ window.addEventListener("DOMContentLoaded", () => {
     toggle.innerHTML = isOpen
       ? '<i data-lucide="x"></i>'
       : '<i data-lucide="menu"></i>';
-    lucide.createIcons();
+    refreshIcons();
   });
 
   // Close menu on nav click (mobile)
@@ -22,7 +21,7 @@ window.addEventListener("DOMContentLoaded", () => {
       nav.classList.remove("open");
       toggle.innerHTML = '<i data-lucide="menu"></i>';
       toggle.setAttribute("aria-label", "Abrir menú");
-      lucide.createIcons();
+      refreshIcons();
     });
   });
 
