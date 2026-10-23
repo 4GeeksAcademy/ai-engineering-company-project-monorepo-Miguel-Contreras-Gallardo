@@ -98,6 +98,41 @@ Implementar el gestor de inventario (Inventory Manager) con FastAPI, PostgreSQL 
 | T12 | INV-007 | Distinguir inexistente de cero | ✅ Lista |
 | T13 | INV-009 | Idempotencia request_key | ✅ Lista |
 | T14 | INV-009 | Conflicto clave reutilizada | ✅ Lista |
+
+---
+
+## 📅 Sesión 3 — 2026-10-22
+
+### Objetivo
+Fase 2 del sistema de telemetría: diseñar el Event Envelope estándar de TrackFlow con envelope normalizado, taxonomía de eventos, esquemas de métricas obligatorias y eventos adicionales con allowlist de propiedades.
+
+### Logros
+- [x] **Documento `docs/telemetry/event-envelope.md` creado** ✅
+- [x] **Envelope estándar de 8 campos obligatorios:**
+  - `eventId` (UUIDv4, idempotencia), `timestamp` (ISO 8601 con ms), `sessionId` (UUIDv4), `userId` (email/URN), `event_type` (`entidad_accion`), `schemaVersion` (semver), `requestId` (UUIDv4 correlación), `properties` (payload validado)
+- [x] **Taxonomía `entidad_accion`** con 15 verbos admitidos en pasado
+- [x] **10 eventos obligatorios (M01–M10):** `shipment_delivered`, `order_picking_completed`, `return_completed`, `ticket_auto_resolved`, `executive_report_generated`, `shipment_carrier_assigned`, `deployment_completed`, `incident_sla_breached`, `stock_depleted`, `client_health_score_updated`
+- [x] **12 eventos adicionales** en **4 categorías**:
+  - **Autenticación (3):** `login_succeeded`, `login_failed`, `session_expired`
+  - **Rendimiento (3):** `api_latency_recorded`, `api_rate_limited`, `deployment_duration_recorded`
+  - **Errores (4):** `api_error_breached`, `data_validation_failed`, `integration_failed`, `direct_stock_edit_rejected`
+  - **Navegación (2):** `section_viewed`, `feature_used`
+- [x] **Allowlist estricto por evento** — cada evento lista explícitamente las claves permitidas en `properties`. Cualquier clave fuera del allowlist es rechazada (previene fugas de datos).
+- [x] Reglas de validación, gobierno y evolución de esquemas documentadas
+- [x] Mapa evento → métrica obligatoria completo
+- [x] Apéndice de transición desde esquemas legacy (snake_case → camelCase, `data` → `properties`)
+- [x] Referencia cruzada actualizada en `telemetry-plan.md` (sección 10)
+
+### Pendientes
+| Prioridad | Tarea | Categoría |
+|---|---|---|
+| 🟡 P1 | **Fase 3 — Pipeline de ingesta de eventos (POST /api/v1/telemetry/events + validador allowlist + idempotencia)** | Telemetría |
+| 🟢 P2 | Configurar docker-compose.yml con PostgreSQL + API | Infra |
+| 🟢 P2 | Migrar a PostgreSQL + Alembic migrations | Backend |
+| 🟢 P2 | Pipeline de ingesta de pedidos | Datos |
+| 🟢 P2 | API de inventario unificado | Backend |
+| 🟢 P2 | Base de conocimiento para RAG (CX) | IA |
+| 🔵 P3 | Agente orquestador multi-departamento | Visión final |
 | T15 | INV-010 | Instantánea consistente | ✅ Lista |
 | T16 | INV-011 | CRUD de artículos | ✅ Listo |
 | T17 | INV-002 | Entrada, salida y ajuste | ✅ Listo |

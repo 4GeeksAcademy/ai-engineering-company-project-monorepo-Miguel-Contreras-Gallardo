@@ -1155,10 +1155,10 @@
     "login_failed": {
       "$id": "#login_failed",
       "title": "Login Failed",
-      "description": "Intento de inicio de sesión fallido por credenciales incorrectas o cuenta bloqueada.",
+      "description": "Intento de inicio de sesión fallido. Solo admite una razón controlada; nunca incluye credenciales, identificadores de cuenta ni datos libres.",
       "category": "autenticacion",
       "metrics": [],
-      "pii_level": "HIGH",
+      "pii_level": "LOW",
       "allowlist": [
         "failureReason",
         "attemptAt",
@@ -1173,12 +1173,10 @@
         "failureReason": {
           "type": "string",
           "enum": [
-            "invalid_password",
-            "account_locked",
-            "invalid_user",
-            "mfa_failed"
+            "invalid_credentials",
+            "network_error"
           ],
-          "description": "Motivo del fallo"
+          "description": "Razón categórica del fallo; no incluir el identificador de cuenta ni el texto del proveedor."
         },
         "attemptAt": {
           "type": "string",
@@ -1203,7 +1201,7 @@
       "additionalProperties": false,
       "examples": [
         {
-          "failureReason": "invalid_password",
+          "failureReason": "invalid_credentials",
           "attemptAt": "2026-10-22T08:01:00.000Z",
           "sourceApp": "backoffice",
           "attemptCount": 3
@@ -1213,10 +1211,10 @@
     "session_expired": {
       "$id": "#session_expired",
       "title": "Session Expired",
-      "description": "Sesión de usuario caducada por inactividad o por superar el TTL máximo.",
+      "description": "Sesión autenticada caducada, reportada por un hook central con datos temporales y una razón categórica; sin credenciales ni identidad directa.",
       "category": "autenticacion",
       "metrics": [],
-      "pii_level": "MEDIUM",
+      "pii_level": "LOW",
       "allowlist": [
         "expiredAt",
         "createdAt",
@@ -1245,12 +1243,7 @@
         },
         "reason": {
           "type": "string",
-          "enum": [
-            "ttl_exceeded",
-            "inactivity",
-            "force_logout",
-            "password_changed"
-          ],
+          "enum": ["session_expired"],
           "description": "Motivo de expiración"
         }
       },
@@ -1260,7 +1253,7 @@
           "expiredAt": "2026-10-22T12:30:00.000Z",
           "createdAt": "2026-10-22T08:00:00.000Z",
           "inactivityMinutes": 35,
-          "reason": "ttl_exceeded"
+          "reason": "session_expired"
         }
       ]
     },
@@ -1777,6 +1770,105 @@
         }
       ]
     },
+    "frontend_error_recorded": {
+      "$id": "#frontend_error_recorded",
+      "title": "Frontend Error Recorded",
+      "description": "Error técnico del backoffice capturado sin mensaje, stack, URL completa ni datos del usuario.",
+      "category": "errores",
+      "metrics": [],
+      "pii_level": "LOW",
+      "allowlist": [
+        "errorCategory",
+        "sourceApp",
+        "occurredAt",
+        "endpoint"
+      ],
+      "required": [
+        "errorCategory",
+        "sourceApp",
+        "occurredAt"
+      ],
+      "properties": {
+        "errorCategory": {
+          "type": "string",
+          "enum": [
+            "uncaught_exception",
+            "unhandled_rejection",
+            "api_network_error",
+            "api_http_error",
+            "api_validation_error",
+            "slow_api_request",
+            "api_connection_lost"
+          ]
+        },
+        "sourceApp": {
+          "type": "string",
+          "enum": ["backoffice"]
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "endpoint": {
+          "type": "string",
+          "pattern": "^/api/v[0-9]+/[a-z0-9/_-]+$",
+          "description": "Ruta normalizada de catálogo, sin parámetros, IDs ni query string."
+        }
+      },
+      "additionalProperties": false
+    },
+    "web_vital_recorded": {
+      "$id": "#web_vital_recorded",
+      "title": "Web Vital Recorded",
+      "description": "Medición de Web Vitals capturada en el backoffice. Incluye solo métrica, valor y ruta estática, sin URL completa ni datos de navegación sensibles.",
+      "category": "rendimiento",
+      "metrics": [],
+      "pii_level": "LOW",
+      "allowlist": [
+        "metricName",
+        "metricValue",
+        "metricRating",
+        "pageRoute",
+        "navigationType",
+        "recordedAt"
+      ],
+      "required": [
+        "metricName",
+        "metricValue",
+        "metricRating",
+        "pageRoute",
+        "recordedAt"
+      ],
+      "properties": {
+        "metricName": {
+          "type": "string",
+          "enum": ["CLS", "INP", "LCP", "FCP", "TTFB"]
+        },
+        "metricValue": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Valor bruto de la métrica: milisegundos excepto CLS, que es adimensional."
+        },
+        "metricRating": {
+          "type": "string",
+          "enum": ["good", "needs-improvement", "poor"]
+        },
+        "pageRoute": {
+          "type": "string",
+          "enum": ["/", "/inventory", "/company", "/other"],
+          "description": "Ruta de página allowlisted; nunca URL completa, query, hash o identificador."
+        },
+        "navigationType": {
+          "type": "string",
+          "enum": ["navigate", "reload", "back-forward", "back-forward-cache", "prerender", "restore", "other"]
+        },
+        "recordedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
     "section_viewed": {
       "$id": "#section_viewed",
       "title": "Section Viewed",
@@ -2002,7 +2094,7 @@
       "changes": [
         "Migración de envelope legacy (event_id, event_version, source, department, trace_id, data) a nuevo estándar camelCase (eventId, schemaVersion, sessionId, requestId, properties)",
         "Taxonomía unificada a entidad_accion (snake_case con verbos en pasado)",
-        "22 schemas de eventos: 10 obligatorios (M01–M10) + 12 adicionales (autenticación, rendimiento, errores, navegación)",
+        "24 schemas de eventos: 10 obligatorios (M01–M10) + 14 adicionales (autenticación, rendimiento, errores, navegación)",
         "Añadido campo pii_level por evento (LOW / MEDIUM / HIGH)",
         "Añadido campo allowlist explícito por evento",
         "Añadido campo required (propiedades obligatorias dentro del objeto properties)",

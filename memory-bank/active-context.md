@@ -1,33 +1,66 @@
 # 🎯 Active Context — Sesión Actual
 
-> **Última actualización:** 2026-09-23
-> **Sesión:** Configuración inicial del proyecto + trazabilidad + Fase 1 del Gestor de Incidencias + System prompts (7 departamentos)
-> **Documentos relacionados:** `project-brief.md` (contexto global) · `progress.md` (histórico) · `decisions.md` (ADRs)
+> **Última actualización:** 2026-10-22
+> **Sesión:** Fase 2 — Diseño del Event Envelope estándar de telemetría
+> **Documentos relacionados:** `project-brief.md` (contexto global) · `progress.md` (histórico) · `decisions.md` (ADRs) · `docs/telemetry/telemetry-plan.md` · `docs/telemetry/event-schemas.json` · `docs/telemetry/event-envelope.md`
 
 ---
 
 ## 📌 Objetivo de la Sesión
 
-Establecer la infraestructura de trazabilidad del proyecto a través del `memory-bank/`, diseñar el plan de implementación del **Gestor de Incidencias** de TrackFlow, **implementar la Fase 1 completa** (FastAPI + modelos BD + endpoints con auditoría), crear **system prompts** para los 7 departamentos, y añadir **asignación + ciclo completo de estados** con endpoints dedicados.
+Diseñar el **Event Envelope estándar** de TrackFlow (Fase 2 del sistema de telemetría) con:
+- Envelope de 8 campos obligatorios (`eventId`, `timestamp` ISO 8601, `sessionId`, `userId`, `event_type`, `schemaVersion`, `requestId`, `properties`)
+- Taxonomía `entidad_accion` con verbos consistentes en pasado
+- Esquemas de los 10 eventos obligatorios (M01–M10) con allowlist de propiedades
+- 12 eventos adicionales cubriendo 4 categorías (autenticación, rendimiento, errores, navegación)
+- Allowlist estricto por evento para prevenir fugas accidentales de datos
 
 ---
 
 ## ✅ Progreso de esta sesión
 
-- [x] Análisis completo del proyecto
-- [x] `memory-bank/` creado con 6 documentos clave
-- [x] `project-brief.md` refactorizado con contexto de negocio, stack y estado
-- [x] `CONTEXT.md` creado como fuente única de verdad de TrackFlow ✅
-- [x] Auditoría completa del repositorio (`memory-bank/audit.md`)
-- [x] **`incident-manager-plan.md`** — Plan completo del gestor de incidencias ✅
-- [x] `.gitignore` configurado ✅
-- [x] `pyproject.toml` raíz creado ✅
-- [x] **🚀 FASE 1 DEL GESTOR DE INCIDENCIAS IMPLEMENTADA** ✅
-  - `services/api/` con FastAPI + SQLAlchemy + SQLite (dev)
-  - 4 modelos: incidents, incident_audit_log, incident_comments, incident_attachments
-  - 8 endpoints REST en `/api/v1/incidents`
-  - Máquina de estados (9 estados) con transiciones validadas
-  - Auditoría obligatoria en cada cambio (quién, qué, cuándo, por qué)
+- [x] Análisis completo de la documentación de telemetría existente (`telemetry-plan.md`, `event-schemas.json`)
+- [x] **📨 Diseño del Event Envelope estándar** (`docs/telemetry/event-envelope.md`) ✅
+  - [x] Envelope de 8 campos obligatorios con validación
+  - [x] Convención de nombrado `entidad_accion` con 15 verbos admitidos
+  - [x] **10 eventos obligatorios** (M01–M10) con esquemas completos y ejemplos
+    - `shipment_delivered` (M01), `order_picking_completed` (M02), `return_completed` (M03)
+    - `ticket_auto_resolved` (M04), `executive_report_generated` (M05), `shipment_carrier_assigned` (M06)
+    - `deployment_completed` (M07), `incident_sla_breached` (M08), `stock_depleted` (M09)
+    - `client_health_score_updated` (M10)
+  - [x] **12 eventos adicionales** en 4 categorías:
+    - **Autenticación (3):** `login_succeeded`, `login_failed`, `session_expired`
+    - **Rendimiento (3):** `api_latency_recorded`, `api_rate_limited`, `deployment_duration_recorded`
+    - **Errores (4):** `api_error_breached`, `data_validation_failed`, `integration_failed`, `direct_stock_edit_rejected`
+    - **Navegación (2):** `section_viewed`, `feature_used`
+  - [x] Allowlist explícito por evento (claves permitidas en `properties`)
+  - [x] Mapa evento → métrica obligatoria
+  - [x] Reglas de validación, gobierno y evolución de esquemas
+  - [x] Apéndice de transición desde esquemas legacy (snake_case → camelCase)
+- [x] Referencia cruzada actualizada en `telemetry-plan.md` → sección 10 (Gobierno)
+
+---
+
+## 🚀 Próxima Acción
+
+> **Próxima acción:** Fase 3 — Pipeline de ingesta de eventos (POST /api/v1/telemetry/events + validador de allowlist + idempotencia).
+
+---
+
+## 📋 Próximos Pasos (Priorizados)
+
+| Prioridad | Tarea | Dónde |
+|---|---|---|
+| 🟡 P1 | ~~Fase 1 Gestor Incidencias~~ ✅ | `services/api/` |
+| 🟡 P1 | ~~System prompts (7 deptos)~~ ✅ | `agents/rules/` |
+| 🟡 P1 | ~~Fase 2 — Event Envelope~~ ✅ | `docs/telemetry/event-envelope.md` |
+| 🟡 P1 | **Fase 3 — Pipeline de ingesta de eventos** | `services/api/` |
+| 🟢 P2 | Configurar docker-compose.yml (PostgreSQL + API) | Raíz del repo |
+| 🟢 P2 | Migrar a PostgreSQL + Alembic migrations | `services/api/` |
+| 🟢 P2 | Pipeline de ingesta de pedidos | `data/` |
+| 🟢 P2 | API de inventario unificado | Backend |
+| 🟢 P2 | Base de conocimiento para RAG (CX) | IA |
+| 🔵 P3 | Agente orquestador multi-departamento | Visión final |
   - **🧪 Asignación dedicada POST /{id}/assign** → auto-reported→triaging→assigned + audit (RF-03)
   - **🔄 Transición explícita POST /{id}/transition** → ciclo completo validado (RF-04)
   - **Ciclo completo verificado:** reported → assigned → in_progress → resolved → verified → closed → reopened → triaging → assigned → in_progress → resolved → verified → closed ✅
