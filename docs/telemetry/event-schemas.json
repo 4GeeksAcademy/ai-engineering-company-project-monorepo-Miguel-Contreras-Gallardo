@@ -1,0 +1,2023 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TrackFlow Event Schemas",
+  "version": "2.0",
+  "description": "Catálogo completo de esquemas de eventos de telemetría para TrackFlow. Todos los eventos comparten un envelope común en camelCase con validación estricta de allowlist en properties.",
+  "last_updated": "2026-10-22",
+  "definitions": {
+    "common_envelope": {
+      "type": "object",
+      "required": [
+        "eventId",
+        "timestamp",
+        "sessionId",
+        "userId",
+        "event_type",
+        "schemaVersion",
+        "requestId",
+        "properties"
+      ],
+      "properties": {
+        "eventId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Identificador único del evento. Garantiza idempotencia en toda la plataforma."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento exacto (UTC) en que ocurrió el evento, con resolución de milisegundos. Formato: 2026-10-22T14:30:00.000Z"
+        },
+        "sessionId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Identificador aleatorio de sesión; para procesos sin sesión humana, usar UUID efímero de ejecución."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Identificador seudónimo del actor que originó el evento. Usar ID interno opaco o HMAC; no email, nombre ni IP. Para sistemas: urn:service:inventory-monitor."
+        },
+        "event_type": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*_[a-z][a-z0-9_]*$",
+          "description": "Tipo de evento según taxonomía entidad_accion. Siempre minúsculas con guiones bajos, verbo en pasado."
+        },
+        "schemaVersion": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+$",
+          "description": "Versión del esquema del evento (solo major.minor). Ej: 1.0, 2.1."
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID de correlación opaco para el flujo de una petición o ejecución; no codificar IDs personales o de negocio."
+        },
+        "properties": {
+          "type": "object",
+          "description": "Payload específico del tipo de evento. Validado contra el allowlist definido en el schema de cada evento.",
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "sku_ref": {
+      "type": "object",
+      "required": [
+        "skuId"
+      ],
+      "properties": {
+        "skuId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID opaco del SKU; no incluir nombre de producto"
+        }
+      },
+      "additionalProperties": false
+    },
+    "warehouse_ref": {
+      "type": "object",
+      "required": [
+        "warehouseLocation"
+      ],
+      "properties": {
+        "warehouseLocation": {
+          "type": "string",
+          "enum": [
+            "LA",
+            "Zaragoza"
+          ],
+          "description": "Código del almacén donde ocurrió el evento"
+        }
+      },
+      "additionalProperties": false
+    },
+    "client_ref": {
+      "type": "object",
+      "required": [
+        "clientId"
+      ],
+      "properties": {
+        "clientId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID único del cliente (marca) en TrackFlow"
+        },
+        "clientCountry": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$",
+          "description": "País del cliente (código ISO 3166-1 alpha-2)"
+        },
+        "clientType": {
+          "type": "string",
+          "enum": [
+            "B2B",
+            "B2C"
+          ],
+          "description": "Tipo de cliente"
+        }
+      },
+      "additionalProperties": false
+    },
+    "address_ref": {
+      "type": "object",
+      "properties": {
+        "country": {
+          "type": "string",
+          "description": "País de destino (código ISO 3166-1 alpha-2)"
+        },
+        "city": {
+          "type": "string",
+          "description": "Ciudad de destino; no incluir dirección exacta ni persistir en telemetría si permite identificar al destinatario."
+        },
+        "zipCode": {
+          "type": "string",
+          "description": "Código postal; excluir de telemetría persistida por riesgo de identificación indirecta."
+        }
+      },
+      "additionalProperties": false
+    },
+    "carrier_ref": {
+      "type": "object",
+      "required": [
+        "carrierId",
+        "carrierName"
+      ],
+      "properties": {
+        "carrierId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID único del transportista"
+        },
+        "carrierName": {
+          "type": "string",
+          "enum": ["UPS", "FedEx", "MRW", "DHL", "SEUR", "Correos", "other"],
+          "description": "Nombre del transportista (UPS, FedEx, MRW…)"
+        },
+        "carrierCountry": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$",
+          "description": "País de origen del transportista"
+        }
+      },
+      "additionalProperties": false
+    },
+    "pii_sanitization_note": {
+      "type": "string",
+      "description": "Aplican las exclusiones de privacidad de §12.4 de telemetry-plan.md: no persistir email, nombre, IP, dirección exacta, firma, texto libre, número de seguimiento ni nombres de cliente/SKU. Cuando sea necesario, usar ID opaco/HMAC con acceso controlado; no tratar el hash simple como anonimización."
+    }
+  },
+  "event_schemas": {
+    "shipment_delivered": {
+      "$id": "#shipment_delivered",
+      "title": "Shipment Delivered",
+      "description": "Entrega exitosa de un envío al consumidor final. Evento clave para calcular M01 (tasa de entrega a tiempo).",
+      "category": "ultima_milla",
+      "metrics": [
+        "M01"
+      ],
+      "pii_level": "MEDIUM",
+      "allowlist": [
+        "shipmentId",
+        "carrierName",
+        "deliveredAt",
+        "promisedDate",
+        "onTime",
+        "delayDays"
+      ],
+      "required": [
+        "shipmentId",
+        "carrierName",
+        "deliveredAt",
+        "onTime"
+      ],
+      "properties": {
+        "shipmentId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID único del envío en TrackFlow"
+        },
+        "carrierName": {
+          "type": "string",
+          "enum": ["UPS", "FedEx", "MRW", "DHL", "SEUR", "Correos", "other"],
+          "description": "Nombre del transportista (UPS, FedEx, MRW…)"
+        },
+        "deliveredAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento exacto de la entrega"
+        },
+        "promisedDate": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Fecha prometida al consumidor (para calcular onTime)"
+        },
+        "onTime": {
+          "type": "boolean",
+          "description": "true si se entregó antes o en la fecha prometida"
+        },
+        "delayDays": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Días de retraso respecto a la fecha prometida (0 si onTime)"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "shipmentId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+          "carrierName": "UPS",
+          "deliveredAt": "2026-10-23T14:20:00.000Z",
+          "promisedDate": "2026-10-24T18:00:00.000Z",
+          "onTime": true,
+          "delayDays": 0
+        }
+      ]
+    },
+    "order_picking_completed": {
+      "$id": "#order_picking_completed",
+      "title": "Order Picking Completed",
+      "description": "Finalización del picking de un pedido. El tiempo desde picking_started hasta este evento permite calcular M02.",
+      "category": "almacen",
+      "metrics": [
+        "M02"
+      ],
+      "pii_level": "HIGH",
+      "allowlist": [
+        "orderId",
+        "warehouseLocation",
+        "operatorId",
+        "startedAt",
+        "completedAt",
+        "pickingTimeMinutes",
+        "itemsPicked",
+        "linesCompleted"
+      ],
+      "required": [
+        "orderId",
+        "warehouseLocation",
+        "operatorId",
+        "startedAt",
+        "completedAt",
+        "pickingTimeMinutes"
+      ],
+      "properties": {
+        "orderId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID único del pedido en TrackFlow"
+        },
+        "warehouseLocation": {
+          "type": "string",
+          "enum": [
+            "LA",
+            "Zaragoza"
+          ],
+          "description": "Almacén donde se realizó el picking"
+        },
+        "operatorId": {
+          "type": "string",
+          "pattern": "^(usr_[a-zA-Z0-9_-]{8,64}|usr_hmac_[a-f0-9]{32,64})$",
+          "description": "ID opaco/HMAC seudónimo del operario; nunca email ni nombre."
+        },
+        "startedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento de inicio del picking"
+        },
+        "completedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento de finalización del picking"
+        },
+        "pickingTimeMinutes": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Tiempo total de picking en minutos (calculado)"
+        },
+        "itemsPicked": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Número total de unidades pickingadas"
+        },
+        "linesCompleted": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Número de líneas de pedido completadas"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "orderId": "f8e7d6c5-b4a3-2c1d-0e9f-8a7b6c5d4e3f",
+          "warehouseLocation": "LA",
+          "operatorId": "usr_hmac_7f4d9e2a1b8c3f5d0e6a7b9c1d2e3f4a",
+          "startedAt": "2026-10-21T10:05:00.000Z",
+          "completedAt": "2026-10-21T10:17:30.000Z",
+          "pickingTimeMinutes": 12.5,
+          "itemsPicked": 45,
+          "linesCompleted": 3
+        }
+      ]
+    },
+    "return_completed": {
+      "$id": "#return_completed",
+      "title": "Return Completed",
+      "description": "Devolución recibida físicamente en el almacén y lista para inspección. Punto de medida del volumen de devoluciones (M03).",
+      "category": "logistica_inversa",
+      "metrics": [
+        "M03"
+      ],
+      "pii_level": "MEDIUM",
+      "allowlist": [
+        "returnId",
+        "shipmentId",
+        "clientId",
+        "clientCountry",
+        "warehouseLocation",
+        "receivedAt",
+        "packageCondition",
+        "productValue",
+        "reasonCategory"
+      ],
+      "required": [
+        "returnId",
+        "shipmentId",
+        "clientId",
+        "clientCountry",
+        "warehouseLocation",
+        "receivedAt"
+      ],
+      "properties": {
+        "returnId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID único de la devolución en TrackFlow"
+        },
+        "shipmentId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID del envío original asociado"
+        },
+        "clientId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID de la marca (cliente B2B) propietaria del producto"
+        },
+        "clientCountry": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$",
+          "description": "País del cliente (US/ES)"
+        },
+        "warehouseLocation": {
+          "type": "string",
+          "enum": [
+            "LA",
+            "Zaragoza"
+          ],
+          "description": "Almacén donde se recibió la devolución"
+        },
+        "receivedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento de recepción física"
+        },
+        "packageCondition": {
+          "type": "string",
+          "enum": [
+            "good",
+            "damaged",
+            "open"
+          ],
+          "description": "Estado del paquete al llegar"
+        },
+        "productValue": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Valor del producto en EUR en el momento de la devolución"
+        },
+        "reasonCategory": {
+          "type": "string",
+          "enum": ["defective", "wrong_item", "not_as_described", "changed_mind", "damaged_in_transit", "other"],
+          "description": "Categoría del motivo de devolución"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "returnId": "3f4a5b6c-7d8e-9f0a-1b2c-3d4e5f6a7b8c",
+          "shipmentId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+          "clientId": "550e8400-e29b-41d4-a716-446655440001",
+          "clientCountry": "US",
+          "warehouseLocation": "LA",
+          "receivedAt": "2026-10-24T09:00:00.000Z",
+          "packageCondition": "good",
+          "productValue": 89.99,
+          "reasonCategory": "defective"
+        }
+      ]
+    },
+    "ticket_auto_resolved": {
+      "$id": "#ticket_auto_resolved",
+      "title": "Ticket Auto Resolved",
+      "description": "Ticket resuelto automáticamente por la IA sin intervención humana. Mide directamente M04.",
+      "category": "cx",
+      "metrics": [
+        "M04"
+      ],
+      "pii_level": "HIGH",
+      "allowlist": [
+        "ticketId",
+        "clientType",
+        "channel",
+        "language",
+        "category",
+        "resolutionType",
+        "resolvedAt",
+        "resolutionTimeSeconds",
+        "autoApproved",
+        "confidenceScore"
+      ],
+      "required": [
+        "ticketId",
+        "clientType",
+        "channel",
+        "resolutionType",
+        "resolvedAt"
+      ],
+      "properties": {
+        "ticketId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID único del ticket en TrackFlow"
+        },
+        "clientType": {
+          "type": "string",
+          "enum": [
+            "B2B",
+            "B2C"
+          ],
+          "description": "Tipo de cliente"
+        },
+        "channel": {
+          "type": "string",
+          "enum": [
+            "email",
+            "whatsapp",
+            "phone",
+            "chat"
+          ],
+          "description": "Canal de origen"
+        },
+        "language": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}(-[A-Z]{2})?$",
+          "description": "Idioma detectado (en, es)"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["tracking", "returns", "order_status", "product_information", "billing", "other"],
+          "description": "Categoría asignada por la IA"
+        },
+        "resolutionType": {
+          "type": "string",
+          "enum": ["tracking_info", "return_instructions", "order_status_info", "product_info", "billing_info", "other"],
+          "description": "Tipo de resolución automática aplicada"
+        },
+        "resolvedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento de resolución"
+        },
+        "resolutionTimeSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Tiempo desde creación hasta resolución"
+        },
+        "autoApproved": {
+          "type": "boolean",
+          "description": "true si se resolvió sin revisión humana"
+        },
+        "confidenceScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Nivel de confianza de la IA en la resolución (0–1)"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "ticketId": "5a6b7c8d-9e0f-1a2b-3c4d-5e6f7a8b9c0d",
+          "clientType": "B2C",
+          "channel": "email",
+          "language": "en",
+          "category": "tracking",
+          "resolutionType": "tracking_info",
+          "resolvedAt": "2026-10-21T09:00:35.000Z",
+          "resolutionTimeSeconds": 35,
+          "autoApproved": true,
+          "confidenceScore": 0.97
+        }
+      ]
+    },
+    "executive_report_generated": {
+      "$id": "#executive_report_generated",
+      "title": "Executive Report Generated",
+      "description": "Informe ejecutivo generado automáticamente. La diferencia entre timestamp del evento y el momento de los datos mide M05.",
+      "category": "direccion",
+      "metrics": [
+        "M05"
+      ],
+      "pii_level": "LOW",
+      "allowlist": [
+        "reportId",
+        "reportType",
+        "periodStart",
+        "periodEnd",
+        "generatedAt",
+        "dataFreshnessSeconds",
+        "metricsIncluded",
+        "department"
+      ],
+      "required": [
+        "reportId",
+        "reportType",
+        "periodStart",
+        "periodEnd",
+        "generatedAt",
+        "dataFreshnessSeconds"
+      ],
+      "properties": {
+        "reportId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "ID único del reporte generado"
+        },
+        "reportType": {
+          "type": "string",
+          "enum": [
+            "weekly_executive",
+            "monthly_executive",
+            "daily_summary",
+            "custom"
+          ],
+          "description": "Tipo de reporte"
+        },
+        "periodStart": {
+          "type": "string",
+          "format": "date",
+          "description": "Inicio del período cubierto (YYYY-MM-DD)"
+        },
+        "periodEnd": {
+          "type": "string",
+          "format": "date",
+          "description": "Fin del período cubierto (YYYY-MM-DD)"
+        },
+        "generatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Marca de tiempo de generación"
+        },
+        "dataFreshnessSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Tiempo entre el dataset más reciente y el momento de generación (mide M05)"
+        },
+        "metricsIncluded": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Lista de métricas incluidas en el reporte"
+        },
+        "department": {
+          "type": "string",
+          "enum": ["direccion", "almacen", "ultima_milla", "logistica_inversa", "cx", "comercial", "tecnologia", "operaciones"],
+          "description": "Departamento destinatario del reporte"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "reportId": "rpt_weekly_2026_w43",
+          "reportType": "weekly_executive",
+          "periodStart": "2026-10-15",
+          "periodEnd": "2026-10-21",
+          "generatedAt": "2026-10-22T07:00:00.000Z",
+          "dataFreshnessSeconds": 45,
+          "metricsIncluded": [
+            "M01",
+            "M02",
+            "M03",
+            "M04",
+            "M05",
+            "M06",
+            "M07",
+            "M08",
+            "M09",
+            "M10"
+          ],
+          "department": "direccion"
+        }
+      ]
+    },
+    "shipment_carrier_assigned": {
+      "$id": "#shipment_carrier_assigned",
+      "title": "Shipment Carrier Assigned",
+      "description": "Transportista asignado al envío por el motor de selección inteligente. Incluye el coste estimado, clave para M06.",
+      "category": "ultima_milla",
+      "metrics": [
+        "M06"
+      ],
+      "pii_level": "LOW",
+      "allowlist": [
+        "shipmentId",
+        "carrierId",
+        "carrierName",
+        "carrierCountry",
+        "assignmentReason",
+        "estimatedCost",
+        "estimatedCostPerKg",
+        "estimatedDeliveryDate",
+        "weightKg",
+        "urgent",
+        "destinationCountry"
+      ],
+      "required": [
+        "shipmentId",
+        "carrierId",
+        "carrierName",
+        "carrierCountry",
+        "estimatedCost"
+      ],
+      "properties": {
+        "shipmentId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID único del envío en TrackFlow"
+        },
+        "carrierId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID del transportista seleccionado"
+        },
+        "carrierName": {
+          "type": "string",
+          "enum": ["UPS", "FedEx", "MRW", "DHL", "SEUR", "Correos", "other"],
+          "description": "Nombre del transportista (UPS, FedEx, MRW…)"
+        },
+        "carrierCountry": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$",
+          "description": "País de origen del transportista"
+        },
+        "assignmentReason": {
+          "type": "string",
+          "enum": ["lowest_cost", "fastest_delivery", "best_cost_for_weight_destination", "capacity_available", "manual_override_approved"],
+          "description": "Razón de la selección del transportista"
+        },
+        "estimatedCost": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Coste estimado total del envío (EUR)"
+        },
+        "estimatedCostPerKg": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Coste estimado por kg (EUR/kg) — métrica M06"
+        },
+        "estimatedDeliveryDate": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Fecha estimada de entrega"
+        },
+        "weightKg": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Peso total del envío en kg"
+        },
+        "urgent": {
+          "type": "boolean",
+          "description": "true si el envío es urgente"
+        },
+        "destinationCountry": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$",
+          "description": "País de destino del envío"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "shipmentId": "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d",
+          "carrierId": "c1d2e3f4-5678-90ab-cdef-1234567890ab",
+          "carrierName": "UPS",
+          "carrierCountry": "US",
+          "assignmentReason": "best_cost_for_weight_destination",
+          "estimatedCost": 18.75,
+          "estimatedCostPerKg": 0.83,
+          "estimatedDeliveryDate": "2026-10-24T18:00:00.000Z",
+          "weightKg": 22.5,
+          "urgent": false,
+          "destinationCountry": "US"
+        }
+      ]
+    },
+    "deployment_completed": {
+      "$id": "#deployment_completed",
+      "title": "Deployment Completed",
+      "description": "Despliegue de nueva versión finalizado exitosamente. La duración entre deployment_started y deployment_completed mide M07.",
+      "category": "tecnologia",
+      "metrics": [
+        "M07"
+      ],
+      "pii_level": "MEDIUM",
+      "allowlist": [
+        "deploymentId",
+        "serviceName",
+        "version",
+        "previousVersion",
+        "environment",
+        "completedAt",
+        "durationMinutes",
+        "healthCheckPassed",
+        "deployedBy",
+        "commitSha"
+      ],
+      "required": [
+        "deploymentId",
+        "serviceName",
+        "version",
+        "environment",
+        "completedAt",
+        "durationMinutes",
+        "healthCheckPassed"
+      ],
+      "properties": {
+        "deploymentId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID único del despliegue"
+        },
+        "serviceName": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "Nombre del servicio desplegado"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$",
+          "description": "Versión desplegada (semver)"
+        },
+        "previousVersion": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$",
+          "description": "Versión anterior"
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "production",
+            "staging",
+            "development"
+          ],
+          "description": "Entorno destino"
+        },
+        "completedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento de finalización"
+        },
+        "durationMinutes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Duración total en minutos (mide M07)"
+        },
+        "healthCheckPassed": {
+          "type": "boolean",
+          "description": "true si las health checks post-deploy pasaron"
+        },
+        "deployedBy": {
+          "type": "string",
+          "pattern": "^(usr_[a-zA-Z0-9_-]{8,64}|usr_hmac_[a-f0-9]{32,64})$",
+          "description": "ID opaco/HMAC seudónimo del desarrollador, solo si es necesario; nunca email ni nombre."
+        },
+        "commitSha": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{7,40}$",
+          "description": "SHA del commit desplegado"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "deploymentId": "7a8b9c0d-1e2f-3a4b-5c6d-7e8f9a0b1c2d",
+          "serviceName": "inventory-api",
+          "version": "2.5.0",
+          "previousVersion": "2.4.1",
+          "environment": "production",
+          "completedAt": "2026-10-21T02:15:00.000Z",
+          "durationMinutes": 15,
+          "healthCheckPassed": true,
+          "deployedBy": "usr_hmac_7f3d9e2a1b8c4f5d0e6a7b9c1d2e3f4b",
+          "commitSha": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b"
+        }
+      ]
+    },
+    "incident_sla_breached": {
+      "$id": "#incident_sla_breached",
+      "title": "Incident SLA Breached",
+      "description": "Incidencia que ha superado el SLA acordado sin resolverse. Se emite cuando el tiempo de resolución supera el umbral (M08).",
+      "category": "tecnologia",
+      "metrics": [
+        "M08"
+      ],
+      "pii_level": "MEDIUM",
+      "allowlist": [
+        "incidentId",
+        "priority",
+        "assignedArea",
+        "slaDeadline",
+        "breachedAt",
+        "overdueHours",
+        "currentStatus"
+      ],
+      "required": [
+        "incidentId",
+        "priority",
+        "slaDeadline",
+        "breachedAt",
+        "overdueHours"
+      ],
+      "properties": {
+        "incidentId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID opaco de la incidencia en el sistema de ticketing; nunca usar título, email ni identificador externo con datos personales."
+        },
+        "priority": {
+          "type": "string",
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low"
+          ],
+          "description": "Prioridad de la incidencia"
+        },
+        "assignedArea": {
+          "type": "string",
+          "enum": [
+            "almacen",
+            "ultima_milla",
+            "logistica_inversa",
+            "cx",
+            "comercial",
+            "tecnologia",
+            "operaciones"
+          ],
+          "description": "Área responsable de la incidencia"
+        },
+        "slaDeadline": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Fecha límite del SLA"
+        },
+        "breachedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento en que se superó el SLA"
+        },
+        "overdueHours": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Horas de retraso acumuladas"
+        },
+        "currentStatus": {
+          "type": "string",
+          "enum": [
+            "open",
+            "in_progress",
+            "pending",
+            "resolved",
+            "closed"
+          ],
+          "description": "Estado actual de la incidencia"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "incidentId": "2c7b4a19-8e63-4f20-9d51-6a3b8c0e2f74",
+          "priority": "critical",
+          "assignedArea": "tecnologia",
+          "slaDeadline": "2026-10-21T12:00:00.000Z",
+          "breachedAt": "2026-10-21T15:00:00.000Z",
+          "overdueHours": 3,
+          "currentStatus": "in_progress"
+        }
+      ]
+    },
+    "stock_depleted": {
+      "$id": "#stock_depleted",
+      "title": "Stock Depleted",
+      "description": "Rotura de stock: un SKU ha agotado su inventario disponible en un almacén. Mide M09.",
+      "category": "almacen",
+      "metrics": [
+        "M09"
+      ],
+      "pii_level": "MEDIUM",
+      "allowlist": [
+        "skuId",
+        "warehouseLocation",
+        "currentStock",
+        "stockMinimum",
+        "clientId",
+        "affectedOrdersCount",
+        "outSince"
+      ],
+      "required": [
+        "skuId",
+        "warehouseLocation",
+        "currentStock",
+        "stockMinimum",
+        "clientId"
+      ],
+      "properties": {
+        "skuId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID único del SKU"
+        },
+        "warehouseLocation": {
+          "type": "string",
+          "enum": [
+            "LA",
+            "Zaragoza"
+          ],
+          "description": "Almacén donde ocurrió la rotura"
+        },
+        "currentStock": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Stock actual (0 en el momento de la rotura)"
+        },
+        "stockMinimum": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Stock mínimo configurado para el SKU"
+        },
+        "clientId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID opaco del cliente B2B propietario del SKU; su resolución requiere acceso controlado."
+        },
+        "affectedOrdersCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Número de pedidos afectados por la rotura"
+        },
+        "outSince": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento desde el que el stock es 0"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "skuId": "b2c3d4e5-6789-01ab-cdef-2345678901bc",
+          "warehouseLocation": "LA",
+          "currentStock": 0,
+          "stockMinimum": 300,
+          "clientId": "550e8400-e29b-41d4-a716-446655440003",
+          "affectedOrdersCount": 8,
+          "outSince": "2026-10-21T08:25:00.000Z"
+        }
+      ]
+    },
+    "client_health_score_updated": {
+      "$id": "#client_health_score_updated",
+      "title": "Client Health Score Updated",
+      "description": "Scoring de salud de un cliente B2B recalculado. Mide la satisfacción y predice renovación (M10).",
+      "category": "comercial",
+      "metrics": [
+        "M10"
+      ],
+      "pii_level": "MEDIUM",
+      "allowlist": [
+        "clientId",
+        "clientCountry",
+        "healthScore",
+        "previousScore",
+        "scoreOnTimeDelivery",
+        "scoreReturnRate",
+        "scoreCxSatisfaction",
+        "scoreVolumeTrend",
+        "riskLevel",
+        "evaluatedAt"
+      ],
+      "required": [
+        "clientId",
+        "healthScore",
+        "riskLevel",
+        "evaluatedAt"
+      ],
+      "properties": {
+        "clientId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID único del cliente B2B"
+        },
+        "clientCountry": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$",
+          "description": "País del cliente (código ISO 3166-1 alpha-2)"
+        },
+        "healthScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Puntuación global de salud (0–10)"
+        },
+        "previousScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Puntuación en la evaluación anterior"
+        },
+        "scoreOnTimeDelivery": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Subscore: entregas a tiempo (0–10)"
+        },
+        "scoreReturnRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Subscore: tasa de devoluciones (0–10)"
+        },
+        "scoreCxSatisfaction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Subscore: satisfacción CX (0–10)"
+        },
+        "scoreVolumeTrend": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Subscore: tendencia de volumen (0–10)"
+        },
+        "riskLevel": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ],
+          "description": "Nivel de riesgo"
+        },
+        "evaluatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento de la evaluación"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "clientId": "550e8400-e29b-41d4-a716-446655440001",
+          "clientCountry": "US",
+          "healthScore": 8.5,
+          "previousScore": 8.2,
+          "scoreOnTimeDelivery": 8.8,
+          "scoreReturnRate": 7.5,
+          "scoreCxSatisfaction": 9.0,
+          "scoreVolumeTrend": 8.7,
+          "riskLevel": "low",
+          "evaluatedAt": "2026-10-21T06:00:00.000Z"
+        }
+      ]
+    },
+    "login_succeeded": {
+      "$id": "#login_succeeded",
+      "title": "Login Succeeded",
+      "description": "Inicio de sesión exitoso tras verificar credenciales.",
+      "category": "autenticacion",
+      "metrics": [],
+      "pii_level": "HIGH",
+      "allowlist": [
+        "authMethod",
+        "loginAt",
+        "sourceApp"
+      ],
+      "required": [
+        "loginAt"
+      ],
+      "properties": {
+        "authMethod": {
+          "type": "string",
+          "enum": [
+            "password",
+            "sso",
+            "mfa",
+            "api_token"
+          ],
+          "description": "Método de autenticación"
+        },
+        "loginAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento del inicio de sesión"
+        },
+        "sourceApp": {
+          "type": "string",
+          "enum": [
+            "backoffice",
+            "website",
+            "api"
+          ],
+          "description": "Aplicación de origen"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "authMethod": "password",
+          "loginAt": "2026-10-22T08:00:00.000Z",
+          "sourceApp": "backoffice"
+        }
+      ]
+    },
+    "login_failed": {
+      "$id": "#login_failed",
+      "title": "Login Failed",
+      "description": "Intento de inicio de sesión fallido por credenciales incorrectas o cuenta bloqueada.",
+      "category": "autenticacion",
+      "metrics": [],
+      "pii_level": "HIGH",
+      "allowlist": [
+        "failureReason",
+        "attemptAt",
+        "sourceApp",
+        "attemptCount"
+      ],
+      "required": [
+        "failureReason",
+        "attemptAt"
+      ],
+      "properties": {
+        "failureReason": {
+          "type": "string",
+          "enum": [
+            "invalid_password",
+            "account_locked",
+            "invalid_user",
+            "mfa_failed"
+          ],
+          "description": "Motivo del fallo"
+        },
+        "attemptAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento del intento"
+        },
+        "sourceApp": {
+          "type": "string",
+          "enum": [
+            "backoffice",
+            "website",
+            "api"
+          ],
+          "description": "Aplicación de origen"
+        },
+        "attemptCount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Número de intentos fallidos consecutivos acumulados"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "failureReason": "invalid_password",
+          "attemptAt": "2026-10-22T08:01:00.000Z",
+          "sourceApp": "backoffice",
+          "attemptCount": 3
+        }
+      ]
+    },
+    "session_expired": {
+      "$id": "#session_expired",
+      "title": "Session Expired",
+      "description": "Sesión de usuario caducada por inactividad o por superar el TTL máximo.",
+      "category": "autenticacion",
+      "metrics": [],
+      "pii_level": "MEDIUM",
+      "allowlist": [
+        "expiredAt",
+        "createdAt",
+        "inactivityMinutes",
+        "reason"
+      ],
+      "required": [
+        "expiredAt",
+        "createdAt"
+      ],
+      "properties": {
+        "expiredAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento de expiración"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento de creación de la sesión"
+        },
+        "inactivityMinutes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Minutos de inactividad antes de expirar"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "ttl_exceeded",
+            "inactivity",
+            "force_logout",
+            "password_changed"
+          ],
+          "description": "Motivo de expiración"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "expiredAt": "2026-10-22T12:30:00.000Z",
+          "createdAt": "2026-10-22T08:00:00.000Z",
+          "inactivityMinutes": 35,
+          "reason": "ttl_exceeded"
+        }
+      ]
+    },
+    "api_latency_recorded": {
+      "$id": "#api_latency_recorded",
+      "title": "API Latency Recorded",
+      "description": "Medición de latencia de un endpoint de API. Se emite en cada petición o como muestra agregada en ventanas de tiempo.",
+      "category": "rendimiento",
+      "metrics": [
+        "M08"
+      ],
+      "pii_level": "LOW",
+      "allowlist": [
+        "serviceName",
+        "endpoint",
+        "httpMethod",
+        "latencyMs",
+        "statusCode",
+        "clientId"
+      ],
+      "required": [
+        "serviceName",
+        "endpoint",
+        "httpMethod",
+        "latencyMs",
+        "statusCode"
+      ],
+      "properties": {
+        "serviceName": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "Nombre del servicio (e.g. inventory-api)"
+        },
+        "endpoint": {
+          "type": "string",
+          "pattern": "^/api/v[0-9]+/[a-z0-9/_-]+$",
+          "description": "Ruta normalizada con segmentos estáticos; sin query params, IDs ni valores libres."
+        },
+        "httpMethod": {
+          "type": "string",
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ],
+          "description": "Método HTTP"
+        },
+        "latencyMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Latencia medida en milisegundos"
+        },
+        "statusCode": {
+          "type": "integer",
+          "description": "Código de respuesta HTTP"
+        },
+        "clientId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "ID de aplicación/cliente no secreto de catálogo; nunca API key, token o identificador personal."
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "serviceName": "inventory-api",
+          "endpoint": "/api/v1/inventory/stock",
+          "httpMethod": "GET",
+          "latencyMs": 345,
+          "statusCode": 200,
+          "clientId": "backoffice-web"
+        }
+      ]
+    },
+    "api_rate_limited": {
+      "$id": "#api_rate_limited",
+      "title": "API Rate Limited",
+      "description": "Petición rechazada porque el cliente o usuario ha superado el límite de tasa configurado.",
+      "category": "rendimiento",
+      "metrics": [],
+      "pii_level": "LOW",
+      "allowlist": [
+        "clientId",
+        "endpoint",
+        "httpMethod",
+        "limitPerMinute",
+        "retryAfterSeconds",
+        "rejectedAt",
+        "quotaUsed"
+      ],
+      "required": [
+        "endpoint",
+        "limitPerMinute",
+        "retryAfterSeconds",
+        "rejectedAt"
+      ],
+      "properties": {
+        "clientId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "ID de aplicación/cliente no secreto de catálogo; nunca API key, token o identificador personal."
+        },
+        "endpoint": {
+          "type": "string",
+          "pattern": "^/api/v[0-9]+/[a-z0-9/_-]+$",
+          "description": "Ruta del endpoint rate-limited"
+        },
+        "httpMethod": {
+          "type": "string",
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ],
+          "description": "Método HTTP"
+        },
+        "limitPerMinute": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Límite configurado de peticiones por minuto"
+        },
+        "retryAfterSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Segundos recomendados antes de reintentar"
+        },
+        "rejectedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento del rechazo"
+        },
+        "quotaUsed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Cuota usada en la ventana de tiempo"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "clientId": "backoffice-web",
+          "endpoint": "/api/v1/inventory/movements",
+          "httpMethod": "POST",
+          "limitPerMinute": 60,
+          "retryAfterSeconds": 30,
+          "rejectedAt": "2026-10-22T10:05:00.000Z",
+          "quotaUsed": 61
+        }
+      ]
+    },
+    "deployment_duration_recorded": {
+      "$id": "#deployment_duration_recorded",
+      "title": "Deployment Duration Recorded",
+      "description": "Métrica de duración de despliegue registrada al completarse. Complementa a deployment_completed con el dato agregado.",
+      "category": "rendimiento",
+      "metrics": [
+        "M07"
+      ],
+      "pii_level": "LOW",
+      "allowlist": [
+        "deploymentId",
+        "serviceName",
+        "version",
+        "environment",
+        "durationMinutes",
+        "deployHour",
+        "dayOfWeek"
+      ],
+      "required": [
+        "deploymentId",
+        "serviceName",
+        "durationMinutes"
+      ],
+      "properties": {
+        "deploymentId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID único del despliegue"
+        },
+        "serviceName": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "Nombre del servicio desplegado"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$",
+          "description": "Versión desplegada (semver)"
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "production",
+            "staging",
+            "development"
+          ],
+          "description": "Entorno destino"
+        },
+        "durationMinutes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Duración total en minutos"
+        },
+        "deployHour": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 23,
+          "description": "Hora del día en que se desplegó (0–23)"
+        },
+        "dayOfWeek": {
+          "type": "string",
+          "enum": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+          "description": "Día de la semana"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "deploymentId": "7a8b9c0d-1e2f-3a4b-5c6d-7e8f9a0b1c2d",
+          "serviceName": "inventory-api",
+          "version": "2.5.0",
+          "environment": "production",
+          "durationMinutes": 15,
+          "deployHour": 2,
+          "dayOfWeek": "Wednesday"
+        }
+      ]
+    },
+    "api_error_breached": {
+      "$id": "#api_error_breached",
+      "title": "API Error Breached",
+      "description": "Tasa de error de un endpoint que supera el umbral configurado (ej. >5% de 5xx en una ventana de 5 minutos).",
+      "category": "errores",
+      "metrics": [
+        "M08"
+      ],
+      "pii_level": "LOW",
+      "allowlist": [
+        "serviceName",
+        "endpoint",
+        "httpMethod",
+        "errorRate",
+        "threshold",
+        "windowMinutes",
+        "totalRequests",
+        "errorCount",
+        "breachedAt"
+      ],
+      "required": [
+        "serviceName",
+        "endpoint",
+        "errorRate",
+        "threshold",
+        "windowMinutes",
+        "totalRequests",
+        "errorCount",
+        "breachedAt"
+      ],
+      "properties": {
+        "serviceName": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "Nombre del servicio monitorizado"
+        },
+        "endpoint": {
+          "type": "string",
+          "pattern": "^/api/v[0-9]+/[a-z0-9/_-]+$",
+          "description": "Ruta normalizada con segmentos estáticos; sin query params, IDs ni valores libres."
+        },
+        "httpMethod": {
+          "type": "string",
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ],
+          "description": "Método HTTP"
+        },
+        "errorRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Tasa de error observada (0–1)"
+        },
+        "threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Umbral configurado (0–1)"
+        },
+        "windowMinutes": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Ventana de tiempo de la medición"
+        },
+        "totalRequests": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total de peticiones en la ventana"
+        },
+        "errorCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Número de errores en la ventana"
+        },
+        "breachedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento en que se superó el umbral"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "serviceName": "inventory-api",
+          "endpoint": "/api/v1/inventory/stock",
+          "httpMethod": "GET",
+          "errorRate": 0.08,
+          "threshold": 0.05,
+          "windowMinutes": 5,
+          "totalRequests": 1200,
+          "errorCount": 96,
+          "breachedAt": "2026-10-21T04:00:00.000Z"
+        }
+      ]
+    },
+    "data_validation_failed": {
+      "$id": "#data_validation_failed",
+      "title": "Data Validation Failed",
+      "description": "Petición a la API que falla validación de esquema (HTTP 422) o regla de negocio. Ayuda a detectar problemas en clientes o integraciones.",
+      "category": "errores",
+      "metrics": [],
+      "pii_level": "MEDIUM",
+      "allowlist": [
+        "clientId",
+        "endpoint",
+        "httpMethod",
+        "validationErrors",
+        "payloadStructure",
+        "rejectedAt",
+        "validationSchemaVersion"
+      ],
+      "required": [
+        "endpoint",
+        "validationErrors",
+        "rejectedAt"
+      ],
+      "properties": {
+        "clientId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "ID de aplicación/cliente no secreto de catálogo; nunca API key, token ni identificador personal."
+        },
+        "endpoint": {
+          "type": "string",
+          "pattern": "^/api/v[0-9]+/[a-z0-9/_-]+$",
+          "description": "Ruta normalizada con segmentos estáticos; sin query params, IDs ni valores libres."
+        },
+        "httpMethod": {
+          "type": "string",
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ],
+          "description": "Método HTTP"
+        },
+        "validationErrors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "field",
+              "code"
+            ],
+            "properties": {
+              "field": {
+                "type": "string",
+                "pattern": "^[a-zA-Z][a-zA-Z0-9_.]{0,63}$"
+              },
+              "code": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]*$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "description": "Lista estructural de pares campo/código controlado; no incluir valores del payload ni mensajes libres."
+        },
+        "payloadStructure": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "Nombre de la estructura esperada"
+        },
+        "rejectedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento del rechazo"
+        },
+        "validationSchemaVersion": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+$",
+          "description": "Versión del esquema de validación usado"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "clientId": "backoffice-web",
+          "endpoint": "/api/v1/inventory/movements",
+          "httpMethod": "POST",
+          "validationErrors": [
+            {
+              "field": "quantity",
+              "code": "positive_integer_required"
+            },
+            {
+              "field": "skuId",
+              "code": "required"
+            }
+          ],
+          "payloadStructure": "movement_create",
+          "rejectedAt": "2026-10-22T11:15:00.000Z",
+          "validationSchemaVersion": "1.0"
+        }
+      ]
+    },
+    "integration_failed": {
+      "$id": "#integration_failed",
+      "title": "Integration Failed",
+      "description": "Fallo en la comunicación con un sistema externo (API de transportista, SGA, ERP, proveedor cloud).",
+      "category": "errores",
+      "metrics": [],
+      "pii_level": "LOW",
+      "allowlist": [
+        "integrationName",
+        "partnerName",
+        "endpoint",
+        "httpStatus",
+        "failureReason",
+        "failedAt",
+        "retryCount",
+        "circuitBreakerStatus"
+      ],
+      "required": [
+        "integrationName",
+        "failureReason",
+        "failedAt"
+      ],
+      "properties": {
+        "integrationName": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "Nombre interno de la integración"
+        },
+        "partnerName": {
+          "type": "string",
+          "enum": ["UPS", "FedEx", "MRW", "DHL", "SEUR", "Correos", "SGA", "ERP", "cloud_provider", "other"],
+          "description": "Nombre del partner externo"
+        },
+        "endpoint": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "Identificador de ruta/integración de catálogo, no URL; nunca incluir query, host, credenciales ni tokens."
+        },
+        "httpStatus": {
+          "type": "integer",
+          "description": "Código de respuesta HTTP del externo"
+        },
+        "failureReason": {
+          "type": "string",
+          "enum": ["timeout", "upstream_unavailable", "connection_refused", "authentication_failed", "rate_limited", "invalid_response", "unknown"],
+          "description": "Código controlado del fallo; no incluir mensaje del proveedor ni texto libre."
+        },
+        "failedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento del fallo"
+        },
+        "retryCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Número de reintentos realizados"
+        },
+        "circuitBreakerStatus": {
+          "type": "string",
+          "enum": [
+            "closed",
+            "open",
+            "half_open"
+          ],
+          "description": "Estado del circuit breaker"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "integrationName": "carrier-tracking-ups",
+          "partnerName": "UPS",
+          "endpoint": "carrier_tracking_details",
+          "httpStatus": 503,
+          "failureReason": "upstream_unavailable",
+          "failedAt": "2026-10-22T09:30:00.000Z",
+          "retryCount": 3,
+          "circuitBreakerStatus": "open"
+        }
+      ]
+    },
+    "section_viewed": {
+      "$id": "#section_viewed",
+      "title": "Section Viewed",
+      "description": "Sección del backoffice o página de la web corporativa visualizada por el usuario. Se emite cuando una sección entra en el viewport.",
+      "category": "navegacion",
+      "metrics": [],
+      "pii_level": "MEDIUM",
+      "allowlist": [
+        "sectionId",
+        "sectionName",
+        "sourceApp",
+        "viewedAt",
+        "referrerSection",
+        "durationSeconds"
+      ],
+      "required": [
+        "sectionId",
+        "viewedAt"
+      ],
+      "properties": {
+        "sectionId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "ID único de la sección"
+        },
+        "sectionName": {
+          "type": "string",
+          "enum": ["dashboard", "inventory", "movements", "orders", "returns", "settings", "help", "other"],
+          "description": "Nombre descriptivo de la sección"
+        },
+        "sourceApp": {
+          "type": "string",
+          "enum": [
+            "backoffice",
+            "website"
+          ],
+          "description": "Aplicación de origen"
+        },
+        "viewedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento de visualización"
+        },
+        "referrerSection": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "Sección desde la que se navegó"
+        },
+        "durationSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Tiempo que el usuario permaneció en la sección"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "sectionId": "movements-dashboard",
+          "sectionName": "movements",
+          "sourceApp": "backoffice",
+          "viewedAt": "2026-10-22T08:05:00.000Z",
+          "referrerSection": "articles-dashboard",
+          "durationSeconds": 45
+        }
+      ]
+    },
+    "feature_used": {
+      "$id": "#feature_used",
+      "title": "Feature Used",
+      "description": "Funcionalidad concreta del backoffice utilizada por el operario. Permite medir adopción de funcionalidades y detectar infrautilización.",
+      "category": "navegacion",
+      "metrics": [],
+      "pii_level": "MEDIUM",
+      "allowlist": [
+        "featureId",
+        "featureName",
+        "actionType",
+        "usedAt",
+        "contextSection",
+        "outcome"
+      ],
+      "required": [
+        "featureId",
+        "usedAt"
+      ],
+      "properties": {
+        "featureId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "ID único de la funcionalidad"
+        },
+        "featureName": {
+          "type": "string",
+          "enum": ["article_create", "article_edit", "movement_create", "movement_edit", "order_process", "return_process", "report_export", "other"],
+          "description": "Nombre descriptivo de la funcionalidad"
+        },
+        "actionType": {
+          "type": "string",
+          "enum": [
+            "click",
+            "drag",
+            "submit",
+            "export",
+            "view"
+          ],
+          "description": "Tipo de acción"
+        },
+        "usedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento de uso"
+        },
+        "contextSection": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "Sección desde la que se usó la funcionalidad"
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "success",
+            "error",
+            "cancelled"
+          ],
+          "description": "Resultado de la acción"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "featureId": "article-create",
+          "featureName": "article_create",
+          "actionType": "click",
+          "usedAt": "2026-10-22T08:10:00.000Z",
+          "contextSection": "articles-dashboard",
+          "outcome": "success"
+        }
+      ]
+    },
+    "direct_stock_edit_rejected": {
+      "$id": "#direct_stock_edit_rejected",
+      "title": "Direct Stock Edit Rejected",
+      "description": "Intento de edición directa del stock de un artículo rechazado por el sistema. El inventario solo se modifica vía movimientos (ledger inmutable).",
+      "category": "errores",
+      "metrics": [
+        "M09"
+      ],
+      "pii_level": "MEDIUM",
+      "allowlist": [
+        "articleId",
+        "warehouseLocation",
+        "attemptedStockValue",
+        "rejectionReason",
+        "rejectedAt",
+        "sourceApp"
+      ],
+      "required": [
+        "articleId",
+        "rejectionReason",
+        "rejectedAt"
+      ],
+      "properties": {
+        "articleId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID del artículo cuyo stock se intentó modificar"
+        },
+        "warehouseLocation": {
+          "type": "string",
+          "enum": [
+            "LA",
+            "Zaragoza"
+          ],
+          "description": "Almacén donde se intentó la edición"
+        },
+        "attemptedStockValue": {
+          "type": "integer",
+          "description": "Valor de stock que se intentó asignar"
+        },
+        "rejectionReason": {
+          "type": "string",
+          "enum": ["direct_stock_edit_not_allowed_use_movements"],
+          "description": "Motivo del rechazo (código predefinido)"
+        },
+        "rejectedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Momento del rechazo"
+        },
+        "sourceApp": {
+          "type": "string",
+          "enum": [
+            "backoffice",
+            "api"
+          ],
+          "description": "Aplicación desde la que se intentó la edición"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "articleId": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+          "warehouseLocation": "Zaragoza",
+          "attemptedStockValue": 999,
+          "rejectionReason": "direct_stock_edit_not_allowed_use_movements",
+          "rejectedAt": "2026-10-22T14:00:00.000Z",
+          "sourceApp": "backoffice"
+        }
+      ]
+    }
+  },
+  "validation_rules": {
+    "idempotency": "Si se recibe un eventId ya registrado, se ignora (no es error). El emisor puede reintentar sin riesgo.",
+    "timestamp_skew": "No se aceptan eventos con timestamp futuro (> 5 min de skew) ni con más de 24 h de antigüedad.",
+    "allowlist_strict": "El validador inspecciona properties y rechaza cualquier clave no listada en el allowlist del event_type. Esto previene fugas accidentales de datos (PII, credenciales, información interna).",
+    "required_fields": "Si falta cualquiera de los 8 campos del envelope, el evento se rechaza con 422 Unprocessable Entity.",
+    "pii_sanitization": "Campos marcados como PII directa (🔴) deben ser anonimizados antes de persistir. PII indirecta (🟡) debe tener acceso restringido según política de la compañía."
+  },
+  "changelog": [
+    {
+      "version": "2.0",
+      "date": "2026-10-22",
+      "changes": [
+        "Migración de envelope legacy (event_id, event_version, source, department, trace_id, data) a nuevo estándar camelCase (eventId, schemaVersion, sessionId, requestId, properties)",
+        "Taxonomía unificada a entidad_accion (snake_case con verbos en pasado)",
+        "22 schemas de eventos: 10 obligatorios (M01–M10) + 12 adicionales (autenticación, rendimiento, errores, navegación)",
+        "Añadido campo pii_level por evento (LOW / MEDIUM / HIGH)",
+        "Añadido campo allowlist explícito por evento",
+        "Añadido campo required (propiedades obligatorias dentro del objeto properties)",
+        "Añadido campo examples (ejemplos de properties válidas)",
+        "Definiciones reutilizables: sku_ref, warehouse_ref, client_ref, address_ref, carrier_ref",
+        "Sección validation_rules con reglas de idempotencia, timestamp skew, allowlist estricto y sanitización PII",
+        "Eliminado: paginated_response (no pertenece al schema de eventos), warehouse/client de la raíz del envelope"
+      ]
+    },
+    {
+      "version": "1.0",
+      "date": "2026-10-21",
+      "changes": [
+        "Versión inicial del catálogo de eventos con envelope legacy"
+      ]
+    }
+  ]
+}
