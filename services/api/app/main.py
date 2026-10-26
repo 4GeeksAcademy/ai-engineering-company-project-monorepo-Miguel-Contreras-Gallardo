@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.routers.incidents import router as incidents_router
+from app.routers.telemetry import router as telemetry_router
 from app.schemas.health import HealthResponse
 
 # Import inventory routers
@@ -62,6 +63,7 @@ def create_app() -> FastAPI:
     application.mount("/ui", StaticFiles(directory=UI_DIRECTORY, html=True), name="ui")
 
     application.include_router(incidents_router)
+    application.include_router(telemetry_router)
     application.include_router(articles.router)
     application.include_router(inventory.router)
 

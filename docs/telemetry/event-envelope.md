@@ -56,7 +56,7 @@ Todo evento de telemetría en TrackFlow **debe** cumplir con la siguiente envolt
 5. **IDs de sesión:** Si no existe una sesión de usuario, el emisor genera un UUIDv4 aleatorio y efímero; no reutilizar valores descriptivos ni colocar emails, nombres, IDs de pedido o información equivalente en `sessionId`/`requestId`.
 6. **Datos de propiedades:** Las exclusiones de privacidad de §12.4 de `telemetry-plan.md` prevalecen sobre cualquier allowlist antigua. Por ejemplo, `operatorId` solo admite un ID opaco/HMAC y claves de email/IP, firmas, texto libre, direcciones exactas y nombres de clientes/SKU no se deben emitir en telemetría persistida.
 
-> **Alcance de instrumentación:** solo los 22 `event_type` registrados en `event-schemas.json` tienen esquema formal y pueden emitirse. `stock_received` se conserva aquí como ejemplo conceptual, no instrumentable; antes de producción debe añadirse al registro maestro con su esquema y allowlist. La misma regla aplica a todos los eventos conceptuales de §5 del plan.
+> **Alcance de instrumentación:** solo los `event_type` registrados en `event-schemas.json` tienen esquema formal y pueden emitirse. Esta formalidad no significa que todas las fuentes estén conectadas: el backoffice implementado emite los eventos enumerados en su README, incluyendo `web_vital_recorded` con rutas allowlisted; los hooks `login_failed` y `session_expired` solo producirán eventos al conectarse a un proveedor de autenticación real. Las métricas de negocio requieren su productor transaccional autoritativo. `stock_received` se conserva aquí como ejemplo conceptual, no instrumentable; antes de producción debe añadirse al registro maestro con su esquema y allowlist. La misma regla aplica a todos los eventos conceptuales de §5 del plan.
 
 ---
 
@@ -519,6 +519,8 @@ Incidencia que ha superado el SLA acordado sin resolverse. Este evento se emite 
 
 ### 4.9 M09 — `stock_depleted`
 
+> Este contrato describe el evento objetivo; **el servicio de inventario actual no lo emite**. El ledger calcula saldo por lote y almacén, pero SKU es texto, no existe relación de cliente B2B, y la ubicación no está normalizada al enum de este esquema. La emisión requiere resolver esos IDs/dimensiones y asegurar la transición positiva→cero con serialización/idempotencia transaccional. No inferir este evento desde consultas de reorden ni desde el navegador.
+
 Rotura de stock: un SKU ha agotado su inventario disponible en un almacén. Es el evento que mide M09.
 
 - **Category:** `almacen`
@@ -623,7 +625,7 @@ Scoring de salud de un cliente B2B recalculado. Es el evento que mide la satisfa
 
 > Los eventos de autenticación no contienen email ni IP. En `login_failed`, se conservan únicamente motivo, hora, aplicación y contador; cualquier investigación con identificadores ocurre fuera de telemetría bajo política de seguridad separada.
 
-Eventos del ciclo de autenticación de usuarios en el backoffice y sistemas internos.
+Eventos del ciclo de autenticación de usuarios en el backoffice y sistemas internos. El capturador del backoffice no los emite hasta que exista una fuente real de autenticación conectada.
 
 ---
 
@@ -665,17 +667,17 @@ Inicio de sesión exitoso tras verificar credenciales.
 
 #### 5.1.2 `login_failed`
 
-Intento de inicio de sesión fallido por credenciales incorrectas o cuenta bloqueada.
+Intento de inicio de sesión fallido con motivo categórico, sin identidad de cuenta ni datos libres.
 
 - **Category:** `autenticacion`
 - **Metrics:** —
-- **PII level:** 🔴 Alto — no contiene email ni IP
+- **PII level:** 🟢 Bajo — solo motivo categórico, hora y aplicación; no contiene email, usuario ni IP
 
 **Properties:**
 
 | Campo | Tipo | Req. | Descripción | PII | Sanitización |
 |---|---|---|---|---|---|
-| `failureReason` | `string` | ✅ | Motivo del fallo (`invalid_password`, `account_locked`, `invalid_user`, `mfa_failed`) | 🟢 No | — |
+| `failureReason` | `string` | ✅ | Razón categórica del fallo (`invalid_credentials`, `network_error`) | 🟢 No | No incluir usuario, email, contraseña, token ni texto libre. |
 | `attemptAt` | `string` (ISO 8601) | ✅ | Momento del intento | 🟢 No | — |
 | `sourceApp` | `string` | ❌ | Aplicación de origen | 🟢 No | — |
 | `attemptCount` | `integer` | ❌ | Número de intentos fallidos consecutivos acumulados | 🟢 No | — |
@@ -692,7 +694,7 @@ Intento de inicio de sesión fallido por credenciales incorrectas o cuenta bloqu
   "schemaVersion": "1.0",
   "requestId": "ae827906-da4b-5a63-b750-a762d23ca9ed",
   "properties": {
-    "failureReason": "invalid_password",
+    "failureReason": "invalid_credentials",
     "attemptAt": "2026-10-22T08:01:00.000Z",
     "sourceApp": "backoffice",
     "attemptCount": 3
@@ -704,11 +706,11 @@ Intento de inicio de sesión fallido por credenciales incorrectas o cuenta bloqu
 
 #### 5.1.3 `session_expired`
 
-Sesión de usuario caducada por inactividad o por superar el TTL máximo.
+Sesión de usuario caducada, reportada por el proveedor de autenticación.
 
 - **Category:** `autenticacion`
 - **Metrics:** —
-- **PII level:** 🟡 Medio — `userId` seudónimo presente en el envelope
+- **PII level:** 🟢 Bajo en properties — el envelope puede contener el ID opaco de usuario autenticado
 
 **Properties:**
 
@@ -717,7 +719,7 @@ Sesión de usuario caducada por inactividad o por superar el TTL máximo.
 | `expiredAt` | `string` (ISO 8601) | ✅ | Momento de expiración | 🟢 No | — |
 | `createdAt` | `string` (ISO 8601) | ✅ | Momento de creación de la sesión | 🟢 No | — |
 | `inactivityMinutes` | `integer` | ❌ | Minutos de inactividad antes de expirar | 🟢 No | — |
-| `reason` | `string` | ❌ | Motivo de expiración (`ttl_exceeded`, `inactivity`, `force_logout`, `password_changed`) | 🟢 No | — |
+| `reason` | `string` | ❌ | Razón categórica de expiración (`session_expired`) | 🟢 No | No incluir detalles del token ni texto libre. |
 
 > **Allowlist:** `expiredAt`, `createdAt`, `inactivityMinutes`, `reason`
 
@@ -733,7 +735,7 @@ Sesión de usuario caducada por inactividad o por superar el TTL máximo.
   "properties": {    "expiredAt": "2026-10-22T12:30:00.000Z",
     "createdAt": "2026-10-22T08:00:00.000Z",
     "inactivityMinutes": 35,
-    "reason": "ttl_exceeded"
+    "reason": "session_expired"
   }
 }
 ```
@@ -1173,7 +1175,7 @@ Intento de edición directa del stock de un artículo rechazado por el sistema. 
 | **M05** | Frescura de datos | `executive_report_generated` | Dirección |
 | **M06** | Coste por kg enviado | `shipment_carrier_assigned` | Última Milla |
 | **M07** | Tiempo de deploy | `deployment_completed` | Tecnología |
-| **M08** | Incidencias resueltas SLA | `incident_sla_breached` (+ `api_error_breached`, `api_latency_recorded`) | Tecnología |
+| **M08** | Incidencias resueltas SLA | `incident_sla_breached` (+ `api_error_breached`, `api_latency_recorded` como señales técnicas no equivalentes a incidencia) | Tecnología |
 | **M09** | Rotura de stock | `stock_depleted` (+ `direct_stock_edit_rejected`) | Almacén |
 | **M10** | Satisfacción cliente B2B | `client_health_score_updated` | Comercial |
 
@@ -1236,6 +1238,7 @@ El registro maestro de eventos se mantiene en `docs/telemetry/event-schemas.json
 | 20 | `section_viewed` | **navegación** | — | ➕ Adicional |
 | 21 | `feature_used` | **navegación** | — | ➕ Adicional |
 | 22 | `direct_stock_edit_rejected` | **errores** | M09 | ➕ Adicional |
+| 23 | `frontend_error_recorded` | **errores** | — | ➕ Adicional |
 
 ---
 

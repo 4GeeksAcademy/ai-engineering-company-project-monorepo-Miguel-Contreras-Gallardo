@@ -1,4 +1,5 @@
 const API_URL = "http://localhost:8000";
+const API_SLOW_REQUEST_MS = Number(window.__TRACKFLOW_CONFIG__?.API_SLOW_REQUEST_MS) || 3_000;
 
 const state = {
   articles: [],
@@ -7,6 +8,9 @@ const state = {
 };
 
 const elements = {};
+
+// Install before bootstrapping DOM handlers so initialization errors are captured.
+installFrontendErrorHandlers();
 
 // ---- Company data from CONTEXT.md ----
 const COMPANY_DATA = {
@@ -71,14 +75,17 @@ async function checkApiStatus() {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 1500);
   try {
-    await fetch(`${API_URL}/articles/`, { method: "HEAD", signal: controller.signal });
-    clearTimeout(timeout);
+    await api("/articles/");
+    state.apiWasUnavailable = false;
     banner.className = "status-banner online";
     banner.querySelector("svg").setAttribute("data-lucide", "cloud");
     text.textContent = "Conectado correctamente a la API de inventario";
     refreshIcons();
   } catch {
-    clearTimeout(timeout);
+    if (!state.apiWasUnavailable) {
+      trackFrontendError("api_connection_lost");
+      state.apiWasUnavailable = true;
+    }
     banner.className = "status-banner";
     banner.querySelector("svg").setAttribute("data-lucide", "cloud-off");
     text.textContent = "API no disponible. El backoffice funciona con datos locales. Inicia la API en services/api.";
@@ -103,10 +110,23 @@ function renderCompanyView() {
 // ---- Inventory (existing code enhanced) ----
 
 async function api(path, options = {}) {
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-  });
+  const method = String(options.method || "GET").toUpperCase();
+  const startedAt = performance.now();
+  let response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    });
+  } catch (error) {
+    trackFrontendError("api_network_error");
+    throw error;
+  }
+  const latencyMs = Math.round(performance.now() - startedAt);
+  trackApiLatency(path, method, latencyMs, response.status);
+  if (!response.ok) {
+    trackFrontendError(response.status === 422 ? "api_validation_error" : "api_http_error");
+  }
   if (!response.ok) {
     let message = `Error ${response.status}`;
     try {
@@ -120,6 +140,60 @@ async function api(path, options = {}) {
     throw new Error(message);
   }
   return response.status === 204 ? null : response.json();
+}
+
+function trackApiLatency(path, method, latencyMs, statusCode) {
+  const normalizedPath = normalizeApiEndpoint(path);
+  if (!normalizedPath) return;
+  window.track("api_latency_recorded", {
+    serviceName: "inventory-api",
+    endpoint: normalizedPath,
+    httpMethod: ["GET", "POST", "PUT", "PATCH", "DELETE"].includes(method) ? method : "GET",
+    latencyMs: Math.max(0, latencyMs),
+    statusCode,
+  });
+  if (latencyMs > API_SLOW_REQUEST_MS) {
+    trackFrontendError("slow_api_request");
+  }
+}
+
+function normalizeApiEndpoint(path) {
+  const pathname = String(path).split("?", 1)[0];
+  if (/^\/articles\/?$/.test(pathname)) return "/api/v1/articles";
+  if (/^\/articles\/[^/]+\/?$/.test(pathname)) return "/api/v1/articles/item";
+  if (/^\/articles\/[^/]+\/lots\/?$/.test(pathname)) return "/api/v1/articles/item/lots";
+  if (/^\/inventory\/stock\/?$/.test(pathname)) return "/api/v1/inventory/stock";
+  if (/^\/inventory\/reorder\/?$/.test(pathname)) return "/api/v1/inventory/reorder";
+  if (/^\/inventory\/movements\/?$/.test(pathname)) return "/api/v1/inventory/movements";
+  return null;
+}
+
+function trackFrontendError(errorCategory) {
+  window.track("frontend_error_recorded", {
+    errorCategory,
+    sourceApp: "backoffice",
+    occurredAt: new Date().toISOString(),
+  });
+}
+
+function trackFeature(featureId, featureName, actionType = "click", outcome) {
+  window.track("feature_used", {
+    featureId,
+    featureName,
+    actionType,
+    usedAt: new Date().toISOString(),
+    contextSection: state.currentView === "inventory" ? "inventory" : "dashboard",
+    ...(outcome ? { outcome } : {}),
+  });
+}
+
+function installFrontendErrorHandlers() {
+  window.addEventListener("error", (event) => {
+    trackFrontendError("uncaught_exception");
+  });
+  window.addEventListener("unhandledrejection", () => {
+    trackFrontendError("unhandled_rejection");
+  });
 }
 
 async function loadDashboard() {
@@ -231,21 +305,56 @@ async function saveArticle(event) {
       method: mode === "create" ? "POST" : "PUT",
       body: JSON.stringify(payload),
     });
+    window.track("feature_used", {
+      featureId: mode === "create" ? "article-create" : "article-edit",
+      featureName: mode === "create" ? "article_create" : "article_edit",
+      actionType: "submit",
+      usedAt: new Date().toISOString(),
+      contextSection: "inventory",
+      outcome: "success",
+    });
     elements.articleDialog.close();
     showToast(mode === "create" ? "Artículo creado" : "Artículo actualizado");
     await loadDashboard();
   } catch (error) {
+    window.track("feature_used", {
+      featureId: mode === "create" ? "article-create" : "article-edit",
+      featureName: mode === "create" ? "article_create" : "article_edit",
+      actionType: "submit",
+      usedAt: new Date().toISOString(),
+      contextSection: "inventory",
+      outcome: "error",
+    });
     showToast(error.message, true);
   }
 }
 
 async function deactivateArticle(sku) {
-  if (!window.confirm(`¿Dar de baja el artículo ${sku}? El historial se conservará.`)) return;
+  if (!window.confirm(`¿Dar de baja el artículo ${sku}? El historial se conservará.`)) {
+    trackFeature("article-deactivation", "article_edit", "click", "cancelled");
+    return;
+  }
   try {
     await api(`/articles/${encodeURIComponent(sku)}`, { method: "DELETE" });
+    window.track("feature_used", {
+      featureId: "article-deactivation",
+      featureName: "article_edit",
+      actionType: "submit",
+      usedAt: new Date().toISOString(),
+      contextSection: "inventory",
+      outcome: "success",
+    });
     showToast("Artículo dado de baja; historial conservado");
     await loadDashboard();
   } catch (error) {
+    window.track("feature_used", {
+      featureId: "article-deactivation",
+      featureName: "article_edit",
+      actionType: "submit",
+      usedAt: new Date().toISOString(),
+      contextSection: "inventory",
+      outcome: "error",
+    });
     showToast(error.message, true);
   }
 }
@@ -298,10 +407,26 @@ async function saveMovement(event) {
   };
   try {
     const result = await api("/inventory/movements", { method: "POST", body: JSON.stringify(payload) });
+    window.track("feature_used", {
+      featureId: "movement-create",
+      featureName: "movement_create",
+      actionType: "submit",
+      usedAt: new Date().toISOString(),
+      contextSection: "inventory",
+      outcome: "success",
+    });
     elements.movementDialog.close();
     showToast(`Movimiento registrado · stock ${result.resulting_stock}`);
     await loadDashboard();
   } catch (error) {
+    window.track("feature_used", {
+      featureId: "movement-create",
+      featureName: "movement_create",
+      actionType: "submit",
+      usedAt: new Date().toISOString(),
+      contextSection: "inventory",
+      outcome: "error",
+    });
     showToast(error.message, true);
   }
 }
@@ -361,6 +486,25 @@ window.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
       const view = item.dataset.view;
       switchView(view);
+      const sectionName = ({ dashboard: "dashboard", inventory: "inventory", company: "other" })[view] || "other";
+      window.track("section_viewed", {
+        sectionId: view,
+        sectionName,
+        sourceApp: "backoffice",
+        viewedAt: new Date().toISOString(),
+        ...(state.currentView ? { referrerSection: state.currentView } : {}),
+      });
+      if (state.currentView && state.viewStartedAt) {
+        window.track("section_viewed", {
+          sectionId: state.currentView,
+          sectionName: ({ dashboard: "dashboard", inventory: "inventory", company: "other" })[state.currentView] || "other",
+          sourceApp: "backoffice",
+          viewedAt: new Date(state.viewStartedAt).toISOString(),
+          durationSeconds: Math.max(0, Math.floor((Date.now() - state.viewStartedAt) / 1_000)),
+        });
+      }
+      state.currentView = view;
+      state.viewStartedAt = Date.now();
       if (view === "dashboard") renderDashboard();
       if (view === "company") renderCompanyView();
       if (view === "inventory") loadDashboard();
@@ -368,13 +512,28 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   // Inventory events
-  document.querySelector("#refresh-button").addEventListener("click", loadDashboard);
-  document.querySelector("#new-article-button").addEventListener("click", openNewArticle);
-  document.querySelector("#new-movement-button").addEventListener("click", openMovement);
-  document.querySelector("#new-lot-button").addEventListener("click", () => elements.lotDialog.showModal());
+  document.querySelector("#refresh-button").addEventListener("click", () => {
+    trackFeature("inventory-refresh", "other");
+    loadDashboard();
+  });
+  document.querySelector("#new-article-button").addEventListener("click", () => {
+    trackFeature("article-create", "article_create");
+    openNewArticle();
+  });
+  document.querySelector("#new-movement-button").addEventListener("click", () => {
+    trackFeature("movement-create", "movement_create");
+    openMovement();
+  });
+  document.querySelector("#new-lot-button").addEventListener("click", () => {
+    trackFeature("lot-create", "other");
+    elements.lotDialog.showModal();
+  });
   document.querySelector("#movement-sku").addEventListener("change", loadLots);
   document.querySelector("#movement-type").addEventListener("change", syncAdjustmentField);
-  elements.search.addEventListener("input", renderTable);
+  elements.search.addEventListener("input", () => {
+    trackFeature("article-search", "other", "view");
+    renderTable();
+  });
   elements.articleForm.addEventListener("submit", saveArticle);
   elements.movementForm.addEventListener("submit", saveMovement);
   elements.lotForm.addEventListener("submit", saveLot);
@@ -386,5 +545,13 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // Start on dashboard view
   switchView("dashboard");
+  window.track("section_viewed", {
+    sectionId: "dashboard",
+    sectionName: "dashboard",
+    sourceApp: "backoffice",
+    viewedAt: new Date().toISOString(),
+  });
+  state.currentView = "dashboard";
+  state.viewStartedAt = Date.now();
   renderDashboard();
 });
