@@ -1,10 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+
+const HealthHistoryPanel = dynamic(() => import("./components/HealthHistoryPanel"), {
+  loading: () => <p className="mt-4 text-sm text-neutral-500">Cargando historial…</p>,
+});
+const ServiceDiagnostics = dynamic(() => import("./components/ServiceDiagnostics"), {
+  loading: () => <p className="mt-4 text-sm text-neutral-500">Cargando diagnósticos…</p>,
+});
 
 export default function Home() {
   const [backendStatus, setBackendStatus] = useState("consultando…");
   const [dbStatus, setDbStatus] = useState("");
+  const [showHistory, setShowHistory] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   useEffect(() => {
     // Detectar si estamos en Codespaces (URL tipo *-3000.app.github.dev)
@@ -29,7 +39,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-neutral-950 text-neutral-100 p-6">
-      <div className="max-w-md w-full text-center space-y-8">
+      <div className="max-w-2xl w-full text-center space-y-8">
         {/* Logo / título */}
         <div className="space-y-2">
           <p className="text-xs uppercase tracking-widest text-neutral-500">
@@ -81,6 +91,16 @@ export default function Home() {
             ? "Conexión establecida correctamente ✅"
             : "No se pudo contactar con el backend ❌"}
         </p>
+
+        <details className="text-left" onToggle={(event) => setShowHistory(event.currentTarget.open)}>
+          <summary className="cursor-pointer text-sm text-neutral-400 hover:text-neutral-200">Ver historial de salud</summary>
+          {showHistory && <HealthHistoryPanel />}
+        </details>
+
+        <details className="text-left" onToggle={(event) => setShowDiagnostics(event.currentTarget.open)}>
+          <summary className="cursor-pointer text-sm text-neutral-400 hover:text-neutral-200">Abrir diagnóstico detallado</summary>
+          {showDiagnostics && <ServiceDiagnostics />}
+        </details>
       </div>
     </main>
   );

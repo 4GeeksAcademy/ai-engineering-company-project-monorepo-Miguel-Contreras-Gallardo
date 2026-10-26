@@ -8,8 +8,13 @@ from sqlalchemy.orm import Session
 from app.db.base import SessionLocal
 from app.db.models import Article, Lot
 from app.schemas.inventory import ArticleCreate, ArticleResponse, ArticleUpdate, LotCreate, LotResponse
+from app.services.response_cache import database_scope, invalidate
 
 router = APIRouter(prefix="/articles", tags=["articles"])
+
+
+def _invalidate_reorder_cache(db: Session) -> None:
+    invalidate(f"inventory:reorder:{database_scope(db)}")
 
 
 def get_db():
@@ -35,6 +40,7 @@ def create_article(payload: ArticleCreate, db: Session = Depends(get_db)):
     db.add(article)
     db.commit()
     db.refresh(article)
+    _invalidate_reorder_cache(db)
     return article
 
 
@@ -81,6 +87,7 @@ def update_article(sku: str, payload: ArticleUpdate, db: Session = Depends(get_d
         setattr(article, field, value)
     db.commit()
     db.refresh(article)
+    _invalidate_reorder_cache(db)
     return article
 
 
@@ -97,6 +104,7 @@ def delete_article(sku: str, db: Session = Depends(get_db)):
         )
     article.active = False
     db.commit()
+    _invalidate_reorder_cache(db)
     return None
 
 
@@ -123,6 +131,7 @@ def create_lot(sku: str, payload: LotCreate, db: Session = Depends(get_db)):
     db.add(lot)
     db.commit()
     db.refresh(lot)
+    _invalidate_reorder_cache(db)
     return lot
 
 

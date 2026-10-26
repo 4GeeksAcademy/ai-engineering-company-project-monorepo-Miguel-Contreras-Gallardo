@@ -27,8 +27,15 @@ from app.schemas.incident import (
 from app.schemas.audit import AuditLogResponse
 from app.services.incident_service import IncidentService
 from app.services.audit_service import AuditService
+from app.services.response_cache import database_scope, get_or_set, invalidate
 
 router = APIRouter(prefix="/api/v1/incidents", tags=["incidents"])
+
+
+def _invalidate_incident_aggregates(db: Session) -> None:
+    scope = database_scope(db)
+    invalidate(f"incident:stats:{scope}")
+    invalidate(f"incident:open-by-severity:{scope}")
 
 
 # ── POST: Create incident ────────────────────────────────────────────────────
@@ -47,6 +54,7 @@ def create_incident(
 ):
     service = IncidentService(db)
     incident = service.create_incident(data)
+    _invalidate_incident_aggregates(db)
     return incident
 
 
@@ -104,8 +112,8 @@ def list_incidents(
 def get_stats(
     db: Session = Depends(get_db),
 ):
-    service = IncidentService(db)
-    return service.get_stats()
+    key = f"incident:stats:{database_scope(db)}"
+    return get_or_set(key, lambda: IncidentService(db).get_stats())
 
 
 # ── GET: Open by severity ────────────────────────────────────────────────────
@@ -120,8 +128,8 @@ def get_stats(
 def get_open_by_severity(
     db: Session = Depends(get_db),
 ):
-    service = IncidentService(db)
-    return service.get_open_by_severity()
+    key = f"incident:open-by-severity:{database_scope(db)}"
+    return get_or_set(key, lambda: IncidentService(db).get_open_by_severity())
 
 
 # ── GET: Get incident by ID ──────────────────────────────────────────────────
@@ -173,6 +181,7 @@ def update_incident(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Incidencia {incident_id} no encontrada",
         )
+    _invalidate_incident_aggregates(db)
     return incident
 
 
@@ -235,6 +244,7 @@ def assign_incident(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Incidencia {incident_id} no encontrada",
         )
+    _invalidate_incident_aggregates(db)
     return incident
 
 
@@ -273,4 +283,5 @@ def transition_status(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Incidencia {incident_id} no encontrada",
         )
+    _invalidate_incident_aggregates(db)
     return incident

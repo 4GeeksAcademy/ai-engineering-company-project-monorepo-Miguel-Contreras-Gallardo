@@ -23,9 +23,12 @@ Thumbs.db
 .env.local
 **/.env
 **/.env.local
+.env.*
+!.env.example
 
-# Node
+# JavaScript dependencies and build output
 node_modules/
 .next/
-# Frontend build output
+out/
+dist/
 mvp-app/frontend/out/
