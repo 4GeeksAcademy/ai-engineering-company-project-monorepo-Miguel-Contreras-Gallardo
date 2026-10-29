@@ -15,6 +15,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Identity,
     Integer,
+    JSON,
     String,
     UniqueConstraint,
     text,
@@ -59,6 +60,27 @@ class Warehouse(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     location: Mapped[str | None] = mapped_column(String, default=None)
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+
+class TelemetryEventRecord(Base):
+    """Persisted telemetry envelope; separate from the Pydantic validator."""
+
+    __tablename__ = "telemetry_events"
+
+    event_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    session_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    user_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    event_type: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    schema_version: Mapped[str] = mapped_column(String, nullable=False)
+    request_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    properties: Mapped[dict] = mapped_column(JSON, nullable=False)
+    tags: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    received_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
