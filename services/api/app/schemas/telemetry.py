@@ -1,4 +1,4 @@
-"""Pydantic schemas for the telemetry event envelope."""
+"""Telemetry event schemas (Pydantic models)."""
 
 from datetime import datetime
 from typing import Any
@@ -21,10 +21,12 @@ class TelemetryEvent(BaseModel):
 
 
 class TelemetryEventBatch(BaseModel):
-    """A batch of telemetry events submitted to the temporary capture endpoint."""
+    """Batch of telemetry events as expected by the /events endpoint."""
 
     events: list[TelemetryEvent]
 
 
 class TelemetryEventBatchResponse(BaseModel):
     received: int
+    stored: int
+    rejected: int

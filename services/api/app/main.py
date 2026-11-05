@@ -15,6 +15,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.config import settings
 from app.routers.incidents import router as incidents_router
 from app.routers.telemetry import router as telemetry_router
 from app.schemas.health import HealthResponse
@@ -54,10 +55,15 @@ def create_app() -> FastAPI:
 
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        # Fallback CORS: cuando el frontend no pasa por el proxy (p.ej. llamadas
+        # directas desde :3001 o desde una URL forwardeada de GitHub Codespaces).
+        allow_origins=settings.cors_origins
+        if settings.cors_origins
+        else ["http://localhost:3001", "http://localhost:5173", "http://127.0.0.1:3001", "http://127.0.0.1:5173"],
+        allow_origin_regex=r"^https://.*\.app\.github\.dev$",
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type"],
     )
 
     application.mount("/ui", StaticFiles(directory=UI_DIRECTORY, html=True), name="ui")
@@ -66,6 +72,14 @@ def create_app() -> FastAPI:
     application.include_router(telemetry_router)
     application.include_router(articles.router)
     application.include_router(inventory.router)
+
+    # Alias bajo /api para que las rutas RELATIVAS del frontend (/api/articles/,
+    # /api/inventory/*, /api/telemetry/events) también existan cuando el frontend
+    # se sirve desde el propio FastAPI (mount /ui, puerto 8000) sin proxy.
+    # NO se re-incluye incidents_router: su prefijo ya es /api/v1/incidents.
+    application.include_router(telemetry_router, prefix="/api")
+    application.include_router(articles.router, prefix="/api")
+    application.include_router(inventory.router, prefix="/api")
 
     @application.get("/", response_model=HealthResponse, tags=["health"])
     def health_check():
