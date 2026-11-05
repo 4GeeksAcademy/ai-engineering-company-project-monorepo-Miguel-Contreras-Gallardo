@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from app.config import settings
 from app.schemas.telemetry import TelemetryEvent, TelemetryEventBatchResponse
+from app.services.response_cache import invalidate
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/telemetry", tags=["telemetry"])
@@ -43,6 +44,8 @@ def derive_tags(event_type: str, properties: dict[str, Any]) -> list[str]:
     event_class = (
         "technical"
         if category in TECHNICAL_EVENT_CATEGORIES
+        else "operational"
+        if category == "almacen"
         else "business"
     )
     tags.append(f"event_class:{event_class}")
@@ -142,6 +145,8 @@ def capture_events(
                 raise ValueError("Supabase REST response was not an array")
             stored = len(inserted)
             rejected += len(valid_records) - stored
+            if stored:
+                invalidate("telemetry-report:")
         except (httpx.HTTPError, TypeError, ValueError):
             logger.exception("Failed to persist telemetry batch to Supabase")
             raise HTTPException(

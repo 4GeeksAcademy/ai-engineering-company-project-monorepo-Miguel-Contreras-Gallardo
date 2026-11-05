@@ -40,7 +40,7 @@
       || global.NEXT_PUBLIC_TELEMETRY_ENDPOINT
       || runtimeConfig.NEXT_PUBLIC_TELEMETRY_ENDPOINT
       || metaEndpoint
-      || "http://localhost:8000/telemetry/events";
+      || "/api/telemetry/events";
   }
 
   function createUuid() {
