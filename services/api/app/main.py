@@ -18,6 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import settings
 from app.routers.incidents import router as incidents_router
 from app.routers.telemetry import router as telemetry_router
+from app.routers.telemetry_reports import router as telemetry_reports_router
 from app.schemas.health import HealthResponse
 
 # Import inventory routers
@@ -70,6 +71,7 @@ def create_app() -> FastAPI:
 
     application.include_router(incidents_router)
     application.include_router(telemetry_router)
+    application.include_router(telemetry_reports_router)
     application.include_router(articles.router)
     application.include_router(inventory.router)
 
@@ -78,6 +80,7 @@ def create_app() -> FastAPI:
     # se sirve desde el propio FastAPI (mount /ui, puerto 8000) sin proxy.
     # NO se re-incluye incidents_router: su prefijo ya es /api/v1/incidents.
     application.include_router(telemetry_router, prefix="/api")
+    application.include_router(telemetry_reports_router, prefix="/api")
     application.include_router(articles.router, prefix="/api")
     application.include_router(inventory.router, prefix="/api")
 

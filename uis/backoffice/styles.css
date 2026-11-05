@@ -167,6 +167,12 @@ h2 { margin-bottom: 5px; font-size: 20px; letter-spacing: 0; }
 .alert-metric strong { color: var(--coral); }
 
 .workspace { padding: 26px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 8px 30px rgba(24, 32, 29, 0.05); }
+.telemetry-period { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 28px; }
+.telemetry-period p { margin: 6px 0 0; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.telemetry-period #telemetry-status { text-align: right; }
+.telemetry-section { margin-top: 18px; }
+.telemetry-section > p { margin: 4px 0 16px; color: var(--muted); font-size: 13px; }
+.telemetry-section table { min-width: 560px; }
 .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 22px; }
 .section-heading p { margin-bottom: 0; color: var(--muted); font-size: 14px; }
 .search-field { position: relative; display: block; width: min(300px, 100%); }
@@ -232,6 +238,8 @@ input:disabled { color: var(--muted); background: #eef0ed; }
   .topbar { gap: 12px; }
   .workspace { padding: 18px 14px; }
   .section-heading { align-items: stretch; flex-direction: column; }
+  .telemetry-period { align-items: flex-start; flex-direction: column; }
+  .telemetry-period #telemetry-status { text-align: left; }
   .search-field { width: 100%; }
   .form-grid { grid-template-columns: 1fr; }
   dialog form { padding: 20px; }

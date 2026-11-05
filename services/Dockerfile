@@ -14,6 +14,7 @@ RUN uv pip install --system -r requirements.txt
 
 # Copiar código fuente
 COPY api/ .
+COPY telemetry/ /app/services/telemetry/
 
 # Puerto de la API
 EXPOSE 8000

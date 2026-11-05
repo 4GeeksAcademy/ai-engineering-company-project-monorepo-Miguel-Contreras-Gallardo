@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="NEXT_PUBLIC_TELEMETRY_ENDPOINT" content="http://localhost:8000/telemetry/events">
+  <meta name="NEXT_PUBLIC_TELEMETRY_ENDPOINT" content="/api/telemetry/events">
   <title>TrackFlow · Backoffice</title>
   <meta name="description" content="Backoffice de TrackFlow — Panel de operaciones, control de inventario y datos de la empresa de logística de última milla.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25,6 +25,7 @@
       <a class="nav-item active" data-view="dashboard" href="#"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></a>
       <a class="nav-item" data-view="inventory" href="#"><i data-lucide="boxes"></i><span>Inventario</span></a>
       <a class="nav-item" data-view="company" href="#"><i data-lucide="building"></i><span>Empresa</span></a>
+      <a class="nav-item" data-view="telemetry" href="/telemetry"><i data-lucide="activity"></i><span>Telemetría</span></a>
       <a class="nav-item disabled" href="#" aria-disabled="true"><i data-lucide="package-check"></i><span>Pedidos</span></a>
       <a class="nav-item disabled" href="#" aria-disabled="true"><i data-lucide="truck"></i><span>Envíos</span></a>
     </nav>
@@ -199,6 +200,54 @@
           <tr><td><strong>Devoluciones</strong></td><td>18-25% del volumen según cliente y país</td></tr>
         </tbody>
       </table>
+    </section>
+  </main>
+
+  <!-- ===== TECHNICAL TELEMETRY VIEW ===== -->
+  <main id="view-telemetry" class="view">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">SISTEMAS · TELEMETRÍA TÉCNICA</p>
+        <h1>Salud de plataforma</h1>
+      </div>
+      <div class="header-actions">
+        <button class="button secondary" id="telemetry-refresh"><i data-lucide="refresh-cw"></i>Actualizar</button>
+      </div>
+    </header>
+
+    <section class="workspace telemetry-period" aria-live="polite">
+      <div>
+        <h2>Período consultado (UTC)</h2>
+        <p id="telemetry-period">Cargando período…</p>
+      </div>
+      <p id="telemetry-status" role="status">Cargando reporte…</p>
+    </section>
+
+    <section class="workspace telemetry-section">
+      <h2>Eventos técnicos por día</h2>
+      <p>Volumen de eventos de telemetría registrados.</p>
+      <div class="table-shell"><table>
+        <thead><tr><th>Día (UTC)</th><th class="numeric">Eventos</th></tr></thead>
+        <tbody id="telemetry-events-body"><tr><td colspan="2" class="empty-state">Cargando…</td></tr></tbody>
+      </table></div>
+    </section>
+
+    <section class="workspace telemetry-section">
+      <h2>Proporción de errores técnicos</h2>
+      <p>Eventos de error capturados como porcentaje del total de eventos del período.</p>
+      <div class="table-shell"><table>
+        <thead><tr><th>Tipo de error</th><th class="numeric">Errores</th><th class="numeric">Total eventos</th><th class="numeric">Proporción</th></tr></thead>
+        <tbody id="telemetry-errors-body"><tr><td colspan="4" class="empty-state">Cargando…</td></tr></tbody>
+      </table></div>
+    </section>
+
+    <section class="workspace telemetry-section">
+      <h2>Fallos de autenticación por día</h2>
+      <p>Fallos de login sobre intentos registrados; puede estar vacío si no hay proveedor de autenticación conectado.</p>
+      <div class="table-shell"><table>
+        <thead><tr><th>Día (UTC)</th><th class="numeric">Fallidos</th><th class="numeric">Intentos totales</th><th class="numeric">Tasa de fallo</th></tr></thead>
+        <tbody id="telemetry-auth-body"><tr><td colspan="4" class="empty-state">Cargando…</td></tr></tbody>
+      </table></div>
     </section>
   </main>
 

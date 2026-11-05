@@ -82,7 +82,7 @@ def test_persists_valid_batch_and_reports_counts(telemetry_env):
     assert calls[0]["json"][1]["tags"] == [
         "category:almacen",
         "event_type:order_picking_completed",
-        "event_class:business",
+        "event_class:operational",
         "warehouse:Zaragoza",
     ]
     assert len(calls) == 1

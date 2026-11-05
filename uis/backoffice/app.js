@@ -1,4 +1,20 @@
-const API_URL = "http://localhost:8000";
+// In production the reverse proxy exposes the API under the frontend origin at
+// /api. When the static backoffice is opened directly on port 3001 there is no
+// proxy, so call the browser-accessible backend port instead (never the Docker
+// service name, which is not resolvable by the user's browser).
+function getAPIBase() {
+  const configuredBase = window.__TRACKFLOW_CONFIG__?.API_URL;
+  if (configuredBase) return configuredBase.replace(/\/$/, "");
+
+  const { hostname, origin, port, protocol } = window.location;
+  if (hostname.includes("app.github.dev")) {
+    return `${protocol}//${hostname.replace("-3001", "-8000")}/api`;
+  }
+  if (port === "3001") return `${protocol}//${hostname}:8000/api`;
+  return `${origin}/api`;
+}
+
+const API_BASE = getAPIBase();
 const API_SLOW_REQUEST_MS = Number(window.__TRACKFLOW_CONFIG__?.API_SLOW_REQUEST_MS) || 3_000;
 
 const state = {
@@ -107,6 +123,49 @@ function renderCompanyView() {
     .join("");
 }
 
+function renderTelemetryRows(target, rows, columns, emptyMessage) {
+  const body = document.getElementById(target);
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="${columns.length}" class="empty-state">${escapeHtml(emptyMessage)}</td></tr>`;
+    return;
+  }
+  body.innerHTML = rows.map((row) => `<tr>${columns.map(({ key, format, numeric }) =>
+    `<td${numeric ? ' class="numeric"' : ""}>${escapeHtml(format ? format(row[key]) : (row[key] ?? "—"))}</td>`
+  ).join("")}</tr>`).join("");
+}
+
+async function loadTelemetryReport() {
+  const status = document.getElementById("telemetry-status");
+  status.textContent = "Cargando reporte…";
+  try {
+    const report = await api("/telemetry/report");
+    document.getElementById("telemetry-period").textContent =
+      `${report.period.from} — ${report.period.to}`;
+    renderTelemetryRows("telemetry-events-body", report.metrics.events_per_day || [], [
+      { key: "day" }, { key: "event_count", numeric: true },
+    ], "Sin eventos técnicos en este período.");
+    renderTelemetryRows("telemetry-errors-body", report.metrics.error_rate_by_type || [], [
+      { key: "error_type" },
+      { key: "error_count", numeric: true },
+      { key: "total_events", numeric: true },
+      { key: "error_rate", numeric: true, format: (value) => `${Number(value).toFixed(2)}%` },
+    ], "Sin errores técnicos registrados en este período.");
+    renderTelemetryRows("telemetry-auth-body", report.metrics.auth_failure_rate || [], [
+      { key: "day" },
+      { key: "failed_attempts", numeric: true },
+      { key: "total_attempts", numeric: true },
+      { key: "failure_rate", numeric: true, format: (value) => `${(Number(value) * 100).toFixed(2)}%` },
+    ], "Sin intentos de login registrados en este período.");
+    status.textContent = "Reporte actualizado · los datos reflejan únicamente telemetría técnica.";
+  } catch (error) {
+    status.textContent = `No se pudo cargar el reporte: ${error.message}`;
+    document.getElementById("telemetry-period").textContent = "Período no disponible";
+    for (const [id, count] of [["telemetry-events-body", 2], ["telemetry-errors-body", 4], ["telemetry-auth-body", 4]]) {
+      document.getElementById(id).innerHTML = `<tr><td colspan="${count}" class="empty-state">Reporte no disponible.</td></tr>`;
+    }
+  }
+}
+
 // ---- Inventory (existing code enhanced) ----
 
 async function api(path, options = {}) {
@@ -114,7 +173,7 @@ async function api(path, options = {}) {
   const startedAt = performance.now();
   let response;
   try {
-    response = await fetch(`${API_URL}${path}`, {
+    response = await fetch(`${API_BASE}${path}`, {
       ...options,
       headers: { "Content-Type": "application/json", ...(options.headers || {}) },
     });
@@ -486,7 +545,7 @@ window.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
       const view = item.dataset.view;
       switchView(view);
-      const sectionName = ({ dashboard: "dashboard", inventory: "inventory", company: "other" })[view] || "other";
+      const sectionName = ({ dashboard: "dashboard", inventory: "inventory", company: "other", telemetry: "other" })[view] || "other";
       window.track("section_viewed", {
         sectionId: view,
         sectionName,
@@ -508,8 +567,11 @@ window.addEventListener("DOMContentLoaded", () => {
       if (view === "dashboard") renderDashboard();
       if (view === "company") renderCompanyView();
       if (view === "inventory") loadDashboard();
+      if (view === "telemetry") loadTelemetryReport();
     });
   });
+
+  document.querySelector("#telemetry-refresh").addEventListener("click", loadTelemetryReport);
 
   // Inventory events
   document.querySelector("#refresh-button").addEventListener("click", () => {
