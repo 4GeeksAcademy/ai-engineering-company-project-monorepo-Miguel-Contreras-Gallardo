@@ -32,3 +32,7 @@ node_modules/
 out/
 dist/
 mvp-app/frontend/out/
+
+# Generated executive reporting extracts and aggregate evaluation snapshots
+data/raw/executive_reporting/
+data/eval/executive_reporting/
