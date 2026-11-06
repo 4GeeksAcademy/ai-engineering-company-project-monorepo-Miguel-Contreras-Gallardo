@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 import logging
+import json
 from uuid import uuid4
 
 import pytest
@@ -130,11 +131,19 @@ def test_flow_invokes_primary_tasks_and_optional_task_with_return_state(monkeypa
         "transform_validate_m01_task",
         lambda extraction, run_id: calls.append("transform") or {"rows": []},
     )
-    monkeypatch.setattr(
-        pipeline,
-        "load_weekly_kpis_task",
-        lambda transformed: calls.append("load") or {"status": "blocked"},
-    )
+    loaded = {"status": "blocked"}
+    load_state = type(
+        "FakeState",
+        (),
+        {"is_failed": lambda self: False, "result": lambda self: loaded, "name": "Completed"},
+    )()
+
+    def load(transformed, *, return_state=False):
+        assert return_state is True
+        calls.append("load")
+        return load_state
+
+    monkeypatch.setattr(pipeline, "load_weekly_kpis_task", load)
     optional_state = type("FakeState", (), {"is_failed": lambda self: True, "name": "Failed"})()
 
     def optional(rows, *, return_state=False):
@@ -148,6 +157,36 @@ def test_flow_invokes_primary_tasks_and_optional_task_with_return_state(monkeypa
     assert calls == ["extract", "transform", "load", "optional"]
     assert result["status"] == "blocked"
     assert result["optional_eval_state"] == "Failed"
+    assert result["load_state"] == "Completed"
+
+
+def test_load_task_failure_is_returned_without_optional_export(monkeypatch):
+    calls = []
+    monkeypatch.setattr(pipeline, "extract_sources_task", lambda week: {"staging_path": "unused"})
+    monkeypatch.setattr(
+        pipeline,
+        "transform_validate_m01_task",
+        lambda extraction, run_id: calls.append("transform") or {"rows": []},
+    )
+    failed_state = type("FakeState", (), {"is_failed": lambda self: True, "name": "Failed"})()
+
+    def fail_load(transformed, *, return_state=False):
+        assert return_state is True
+        calls.append("load")
+        return failed_state
+
+    def unexpected_eval(*args, **kwargs):
+        pytest.fail("optional export must not run after failed load")
+
+    monkeypatch.setattr(pipeline, "load_weekly_kpis_task", fail_load)
+    monkeypatch.setattr(pipeline, "create_eval_snapshot_task", unexpected_eval)
+    monkeypatch.setattr(pipeline, "get_run_logger", lambda: logging.getLogger("test"))
+
+    result = pipeline.executive_weekly_report_flow.fn(WEEK_START)
+
+    assert result["status"] == "load_failed"
+    assert result["load_state"] == "Failed"
+    assert calls == ["transform", "load"]
 
 
 def test_optional_eval_task_failure_is_captured_by_prefect_flow(monkeypatch):
@@ -172,11 +211,18 @@ def test_optional_eval_task_failure_is_captured_by_prefect_flow(monkeypatch):
             }]
         },
     )
-    monkeypatch.setattr(
-        pipeline,
-        "load_weekly_kpis_task",
-        lambda transformed: {"status": "blocked"},
-    )
+    loaded = {"status": "blocked"}
+    load_state = type(
+        "FakeState",
+        (),
+        {"is_failed": lambda self: False, "result": lambda self: loaded, "name": "Completed"},
+    )()
+
+    def load(transformed, *, return_state=False):
+        assert return_state is True
+        return load_state
+
+    monkeypatch.setattr(pipeline, "load_weekly_kpis_task", load)
     monkeypatch.setattr(pipeline, "get_run_logger", lambda: logging.getLogger("test"))
     failed_state = type(
         "FakeState", (), {"is_failed": lambda self: True, "name": "Failed"}
@@ -190,3 +236,92 @@ def test_optional_eval_task_failure_is_captured_by_prefect_flow(monkeypatch):
     result = pipeline.executive_weekly_report_flow.fn(WEEK_START)
     assert result["status"] == "blocked"
     assert result["optional_eval_state"] == "Failed"
+
+
+def test_transform_cache_key_tracks_staging_content_and_task_metadata(tmp_path, monkeypatch):
+    staging_dir = tmp_path / "raw"
+    staging_dir.mkdir()
+    monkeypatch.setattr(pipeline, "RAW_DIR", staging_dir)
+    staged = staging_dir / "staging.json"
+    staged.write_text('{"cohort_complete": false}', encoding="utf-8")
+    parameters = {
+        "extraction": {"week_start": WEEK_START.isoformat(), "staging_path": str(staged)},
+        "run_id": "run-1",
+    }
+    first_key = pipeline._m01_transform_cache_key(None, parameters)
+    assert pipeline.transform_validate_m01_task.cache_key_fn is pipeline._m01_transform_cache_key
+    assert pipeline.transform_validate_m01_task.cache_expiration.total_seconds() == 6 * 60 * 60
+
+    staged.write_text('{"cohort_complete": true}', encoding="utf-8")
+    assert pipeline._m01_transform_cache_key(None, parameters) != first_key
+    changed_run = {**parameters, "run_id": "run-2"}
+    assert pipeline._m01_transform_cache_key(None, changed_run) != pipeline._m01_transform_cache_key(None, parameters)
+
+
+def test_external_tasks_have_documented_retry_configuration():
+    assert pipeline.extract_sources_task.retries == 2
+    assert pipeline.extract_sources_task.retry_delay_seconds == [1, 3]
+    assert pipeline.load_weekly_kpis_task.retries == 1
+    assert pipeline.load_weekly_kpis_task.retry_delay_seconds == 2
+
+
+def test_run_log_records_running_and_terminal_metadata(tmp_path, monkeypatch):
+    monkeypatch.setattr(pipeline, "RUN_LOG_DIR", tmp_path / "logs")
+    monkeypatch.setattr(pipeline, "RUN_LOG_PATH", tmp_path / "logs" / "runs.jsonl")
+    pipeline._append_run_log({"run_id": "test-run", "status": "running"})
+    pipeline._append_run_log({
+        "run_id": "test-run",
+        "started_at": "2026-10-26T07:00:00+00:00",
+        "finished_at": "2026-10-26T07:00:02+00:00",
+        "records_processed": 4,
+        "status": "succeeded",
+        "error_code": None,
+    })
+
+    entries = [json.loads(line) for line in pipeline.RUN_LOG_PATH.read_text().splitlines()]
+    assert [entry["status"] for entry in entries] == ["running", "succeeded"]
+    assert entries[1]["started_at"] and entries[1]["finished_at"]
+    assert entries[1]["records_processed"] == 4
+    assert entries[1]["error_code"] is None
+    assert pipeline.RUN_LOG_DIR.stat().st_mode & 0o777 == 0o700
+    assert pipeline.RUN_LOG_PATH.stat().st_mode & 0o777 == 0o600
+
+
+def test_load_uses_briefing_unique_key_and_transactional_snapshot(monkeypatch):
+    executed = []
+    class FakeConnection:
+        def execute(self, statement, parameters=None):
+            executed.append((str(statement), parameters))
+            return type("Result", (), {"scalar_one": lambda self: "reporting.executive_weekly_kpis"})()
+
+    class Transaction:
+        def __enter__(self):
+            return FakeConnection()
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    class Engine:
+        def begin(self):
+            return Transaction()
+        def dispose(self):
+            pass
+
+    monkeypatch.setattr(pipeline, "_get_destination_engine", lambda: Engine())
+    row = {
+        "week_start": WEEK_START.isoformat(), "week_end": "2026-10-26",
+        "metric_code": "M01", "metric_name": "On-time delivery rate",
+        "definition_version": "1.0", "metric_value": None, "unit": "percent",
+        "status": "blocked", "status_reason": "missing cohort", "dimensions": {},
+        "numerator": None, "denominator": None, "source_watermark": None,
+        "calculated_at": "2026-10-26T07:00:00+00:00", "run_id": str(uuid4()),
+    }
+    result = pipeline.load_weekly_kpis_task.fn({
+        "week_start": WEEK_START.isoformat(), "week_end": "2026-10-26",
+        "status": "blocked", "rows": [row], "run_id": row["run_id"],
+    })
+
+    assert result["metric_rows_written"] == 1
+    sql = "\n".join(statement for statement, _ in executed)
+    assert "ON CONFLICT (week_start, week_end, metric_code, dimensions, definition_version)" in sql
+    assert "pg_advisory_xact_lock" in sql
+    assert "DELETE FROM reporting.executive_weekly_kpis" in sql

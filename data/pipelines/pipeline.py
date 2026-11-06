@@ -10,8 +10,10 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 from collections.abc import Mapping
 from datetime import date, datetime, timedelta, timezone
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -22,11 +24,17 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import OperationalError
 
+# Support `python data/pipelines/pipeline.py` from the repository root.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from data.process.reporting.m01 import calculate_m01
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RAW_DIR = PROJECT_ROOT / "data" / "raw" / "executive_reporting"
 EVAL_DIR = PROJECT_ROOT / "data" / "eval" / "executive_reporting"
+RUN_LOG_DIR = PROJECT_ROOT / "data" / "pipelines" / "logs"
+RUN_LOG_PATH = RUN_LOG_DIR / "pipeline-runs.jsonl"
 DEFAULT_TELEMETRY_URL = (
     "https://stkmiwhfkrfksraszovd.supabase.co/rest/v1/telemetry_events"
 )
@@ -273,6 +281,8 @@ def _fetch_authoritative_shipments(
     return rows, True, watermark
 
 
+# Two short retries cover transient network/DB interruptions without multiplying
+# the reporting window latency or retrying a persistent schema/configuration fault.
 @task(name="extract_sources_task", retries=2, retry_delay_seconds=[1, 3])
 def extract_sources_task(week_start: date) -> dict[str, Any]:
     """Read `telemetry_events` and, only if configured, shipment source read-only."""
@@ -363,7 +373,30 @@ def extract_sources_task(week_start: date) -> dict[str, Any]:
     }
 
 
-@task(name="transform_validate_m01_task")
+def _m01_transform_cache_key(context: Any, parameters: dict[str, Any]) -> str:
+    """Key M01 cache on protected staging content and run definition inputs."""
+    extraction = parameters.get("extraction", {})
+    staging_path = Path(extraction.get("staging_path", ""))
+    digest = sha256(staging_path.read_bytes()).hexdigest() if staging_path.is_file() else "missing"
+    # The source-data digest, week, run ID and definition version define this
+    # run-specific result; cache it for at most 6h to reuse retries, not stale runs.
+    material = "|".join(
+        (
+            str(extraction.get("week_start", "")),
+            digest,
+            str(parameters.get("run_id", "")),
+            "M01-definition-1.0",
+        )
+    )
+    return sha256(material.encode("utf-8")).hexdigest()
+
+
+@task(
+    name="transform_validate_m01_task",
+    cache_key_fn=_m01_transform_cache_key,
+    cache_expiration=timedelta(hours=6),
+    persist_result=True,
+)
 def transform_validate_m01_task(
     extraction: dict[str, Any], run_id: str
 ) -> dict[str, Any]:
@@ -449,13 +482,30 @@ def _create_optional_eval_snapshot(rows: list[dict[str, Any]]) -> dict[str, Any]
     return {"eval_snapshot": str(output), "row_count": len(rows)}
 
 
+def _append_run_log(record: dict[str, Any]) -> None:
+    """Append aggregate-only execution metadata to a restricted local JSONL log."""
+    RUN_LOG_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(RUN_LOG_DIR, 0o700)
+    descriptor = os.open(
+        RUN_LOG_PATH,
+        os.O_WRONLY | os.O_CREAT | os.O_APPEND | getattr(os, "O_NOFOLLOW", 0),
+        0o600,
+    )
+    with os.fdopen(descriptor, "a", encoding="utf-8") as log_file:
+        log_file.write(json.dumps(record, sort_keys=True, default=str) + "\n")
+        log_file.flush()
+        os.fsync(log_file.fileno())
+
+
+# A retry covers a transient destination disconnect; the transactional replacement
+# and unique-grain upsert make replay safe without exposing partial snapshots.
 @task(name="load_weekly_kpis_task", retries=1, retry_delay_seconds=2)
 def load_weekly_kpis_task(transformed: dict[str, Any]) -> dict[str, Any]:
     """Atomically upsert M01 rows into reporting.executive_weekly_kpis."""
-    engine = _get_destination_engine()
     rows = transformed["rows"]
     if not rows:
         raise PipelineValidationError("Refusing to publish an empty KPI row set")
+    engine = _get_destination_engine()
     statement = text(
         """INSERT INTO reporting.executive_weekly_kpis (
               week_start, week_end, metric_code, metric_name, definition_version,
@@ -473,19 +523,65 @@ def load_weekly_kpis_task(transformed: dict[str, Any]) -> dict[str, Any]:
               status = EXCLUDED.status, status_reason = EXCLUDED.status_reason,
               numerator = EXCLUDED.numerator, denominator = EXCLUDED.denominator,
               source_watermark = EXCLUDED.source_watermark,
-              calculated_at = EXCLUDED.calculated_at, run_id = EXCLUDED.run_id"""
+              calculated_at = EXCLUDED.calculated_at, run_id = EXCLUDED.run_id
+            WHERE (reporting.executive_weekly_kpis.metric_name,
+                   reporting.executive_weekly_kpis.metric_value,
+                   reporting.executive_weekly_kpis.unit,
+                   reporting.executive_weekly_kpis.status,
+                   reporting.executive_weekly_kpis.status_reason,
+                   reporting.executive_weekly_kpis.numerator,
+                   reporting.executive_weekly_kpis.denominator,
+                   reporting.executive_weekly_kpis.source_watermark)
+              IS DISTINCT FROM
+                  (EXCLUDED.metric_name, EXCLUDED.metric_value, EXCLUDED.unit,
+                   EXCLUDED.status, EXCLUDED.status_reason, EXCLUDED.numerator,
+                   EXCLUDED.denominator, EXCLUDED.source_watermark)"""
     )
     try:
         with engine.begin() as connection:
             _ensure_reporting_table(connection)
-            # Per-grain unique constraint plus a transaction makes publication
-            # idempotent without out-of-scope locks or destructive cleanup.
+            # Serialize publishers for this ISO week. This transaction ensures
+            # readers see the prior or replacement snapshot, never a partial one.
+            connection.execute(
+                text("SELECT pg_advisory_xact_lock(hashtext(:lock_name), hashtext(:week_start))"),
+                {
+                    "lock_name": "reporting.executive_weekly_kpis:M01",
+                    "week_start": transformed["week_start"],
+                },
+            )
+            # Upsert each grain using the briefing's database UNIQUE constraint.
+            # Existing matching dimensions are updated in-place on every replay.
+            dimensions_in_snapshot = set()
             for row in rows:
                 payload = dict(row)
                 payload["dimensions"] = json.dumps(row["dimensions"], sort_keys=True)
+                dimensions_in_snapshot.add(payload["dimensions"])
                 payload["run_id"] = transformed.get("run_id") or row["run_id"]
                 connection.execute(statement, payload)
-            # Upserts are idempotent; don't delete other dimensions on a replay.
+            # Remove dimensions omitted by a corrected source snapshot, still
+            # within this transaction and after successful upserts. Readers see
+            # only the old or complete new week; an empty target set is rejected.
+            dimension_parameters = {
+                f"dimension_{index}": value
+                for index, value in enumerate(sorted(dimensions_in_snapshot))
+            }
+            dimension_placeholders = ", ".join(
+                f"CAST(:dimension_{index} AS jsonb)"
+                for index in range(len(dimension_parameters))
+            )
+            connection.execute(
+                text(
+                    """DELETE FROM reporting.executive_weekly_kpis
+                       WHERE week_start = :week_start AND week_end = :week_end
+                         AND metric_code = 'M01' AND definition_version = '1.0'
+                         AND dimensions NOT IN (""" + dimension_placeholders + ")"
+                ),
+                {
+                    "week_start": transformed["week_start"],
+                    "week_end": transformed["week_end"],
+                    **dimension_parameters,
+                },
+            )
     finally:
         engine.dispose()
     return {
@@ -497,7 +593,9 @@ def load_weekly_kpis_task(transformed: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-@task(name="create_eval_snapshot_task", persist_result=False)
+# One retry is enough for a brief local filesystem interruption; it remains
+# optional and has no external service dependency.
+@task(name="create_eval_snapshot_task", retries=1, retry_delay_seconds=1, persist_result=False)
 def create_eval_snapshot_task(rows: list[dict[str, Any]]) -> dict[str, Any]:
     """Optional non-critical aggregate-only evaluation export."""
     return _create_optional_eval_snapshot(rows)
@@ -515,30 +613,104 @@ def executive_weekly_report_flow(
         raise ValueError("Unsupported trigger_type")
     run_id = str(uuid4())
     logger = get_run_logger()
-    logger.info("Starting executive weekly reporting run_id=%s", run_id)
-
-    extraction = extract_sources_task(week_start)
-    transformed = transform_validate_m01_task(extraction, run_id)
-    transformed["run_id"] = run_id
-    loaded = load_weekly_kpis_task(transformed)
-
-    # A failed optional snapshot must never turn successful publication into
-    # a failed flow. Prefect returns the task's failed state on this call.
-    # Call as a Prefect task with return_state=True, so task failures are returned
-    # as a state rather than raised into the successful primary flow.
-    optional_state = create_eval_snapshot_task(
-        transformed["rows"], return_state=True
-    )
-    if optional_state.is_failed():
-        logger.warning("Optional M01 eval snapshot failed; KPI publication succeeded")
-
-    return {
-        **loaded,
+    started_at = datetime.now(timezone.utc)
+    records_processed = 0
+    aggregates_written = 0
+    base_log = {
         "run_id": run_id,
+        "pipeline_name": "executive_weekly_report_flow",
+        "week_start": week_start.isoformat(),
+        "week_end": (week_start + timedelta(days=7)).isoformat(),
+        "started_at": started_at.isoformat(),
         "trigger_type": trigger_type,
         "idempotency_key": idempotency_key,
-        "optional_eval_state": optional_state.name,
     }
+    _append_run_log({**base_log, "status": "running"})
+    logger.info("Starting executive weekly reporting run_id=%s", run_id)
+
+    try:
+        extraction = extract_sources_task(week_start)
+        records_processed = extraction.get("telemetry_count", 0) + extraction.get(
+            "shipment_count", 0
+        )
+        transformed = transform_validate_m01_task(extraction, run_id)
+        transformed["run_id"] = run_id
+        loaded_state = load_weekly_kpis_task(transformed, return_state=True)
+        if loaded_state.is_failed():
+            logger.error("KPI destination load failed; source and transform completed")
+            final_status = "failed"
+            result = {
+                "status": "load_failed",
+                "run_id": run_id,
+                "trigger_type": trigger_type,
+                "idempotency_key": idempotency_key,
+                "load_state": loaded_state.name,
+            }
+            error_code = "LoadFailed"
+            error_message = "KPI destination load failed; details omitted from audit log."
+        else:
+            loaded = loaded_state.result()
+            aggregates_written = loaded.get("metric_rows_written", 0)
+
+            # A failed optional snapshot must never turn successful publication into
+            # a failed flow. Prefect returns the task's failed state on this call.
+            optional_state = create_eval_snapshot_task(
+                transformed["rows"], return_state=True
+            )
+            if optional_state.is_failed():
+                logger.warning("Optional M01 eval snapshot failed; KPI publication succeeded")
+            final_status = (
+                "blocked"
+                if transformed.get("status") == "blocked"
+                else "partial"
+                if optional_state.is_failed()
+                else "succeeded"
+            )
+            result = {
+                **loaded,
+                "run_id": run_id,
+                "trigger_type": trigger_type,
+                "idempotency_key": idempotency_key,
+                "optional_eval_state": optional_state.name,
+                "load_state": loaded_state.name,
+            }
+            error_code = "OptionalEvalFailed" if optional_state.is_failed() else None
+            error_message = (
+                "Optional evaluation snapshot failed; KPI publication succeeded."
+                if optional_state.is_failed()
+                else None
+            )
+    except Exception as exc:
+        finished_at = datetime.now(timezone.utc)
+        _append_run_log(
+            {
+                **base_log,
+                "finished_at": finished_at.isoformat(),
+                "duration_ms": int((finished_at - started_at).total_seconds() * 1000),
+                "records_processed": records_processed,
+                "aggregates_written": aggregates_written,
+                "status": "failed",
+                "error_code": type(exc).__name__,
+                # Keep source payloads, SQL, and credentials out of this local log.
+                "error_message_redacted": "Details omitted; correlate run_id with restricted worker logs.",
+            }
+        )
+        raise
+
+    finished_at = datetime.now(timezone.utc)
+    _append_run_log(
+        {
+            **base_log,
+            "finished_at": finished_at.isoformat(),
+            "duration_ms": int((finished_at - started_at).total_seconds() * 1000),
+            "records_processed": records_processed,
+            "aggregates_written": aggregates_written,
+            "status": final_status,
+            "error_code": error_code,
+            "error_message_redacted": error_message,
+        }
+    )
+    return result
 
 
 @flow(name="executive_report_backfill_flow", log_prints=False)
@@ -566,3 +738,31 @@ __all__ = [
     "load_weekly_kpis_task",
     "transform_validate_m01_task",
 ]
+
+
+def _main() -> int:
+    """CLI entry point; defaults to the previous fully completed ISO week."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Run TrackFlow's weekly executive report")
+    parser.add_argument(
+        "--week-start",
+        type=date.fromisoformat,
+        help="Monday ISO date (default: previous completed ISO week)",
+    )
+    parser.add_argument(
+        "--trigger-type",
+        choices=("scheduled", "manual", "retry", "backfill"),
+        default="manual",
+    )
+    args = parser.parse_args()
+    today_utc = datetime.now(timezone.utc).date()
+    current_monday = today_utc - timedelta(days=today_utc.weekday())
+    week_start = args.week_start or (current_monday - timedelta(days=7))
+    result = executive_weekly_report_flow(week_start, trigger_type=args.trigger_type)
+    print(json.dumps(result, sort_keys=True, default=str))
+    return 0 if result.get("status") != "load_failed" else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main())

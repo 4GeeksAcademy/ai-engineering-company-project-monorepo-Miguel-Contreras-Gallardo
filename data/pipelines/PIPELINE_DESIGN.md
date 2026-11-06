@@ -2,6 +2,8 @@
 
 **Status:** Design proposal. KPI and destination contract: [`company-BRIEFING.md`](./company-BRIEFING.md).
 
+**Reporting cadence:** TrackFlow's consolidated report is scheduled weekly on Monday at 07:00 `America/Los_Angeles` for the previous fully completed ISO week (UTC boundaries), consistent with the company briefing. The timezone/schedule is a project assumption and requires owner confirmation before production scheduling. Run manually from the repository root with `python data/pipelines/pipeline.py`; optionally pass `--week-start YYYY-MM-DD` (a Monday) and `--trigger-type manual|scheduled|retry|backfill`.
+
 ## 1. Goal and boundaries
 
 Produce a governed weekly executive report for TrackFlow, with an extensible refresh path for dashboards. The pipeline combines authoritative operational source data with mandatory telemetry signals where relevant, validates coverage, computes reproducible KPI aggregates, and writes only to PostgreSQL `reporting.executive_weekly_kpis`.
@@ -68,6 +70,8 @@ La fuente de envíos puede corregir/actualizar registros existentes. Leer por `u
 
 ### Fase 3 — Resiliencia, idempotencia y auditoría de corridas
 
+**Implemented behavior:** `load_weekly_kpis_task` serializes writers with a PostgreSQL transaction-scoped advisory lock for the M01 week, replaces that complete week's M01/definition 1.0 rows and reinserts the validated snapshot in the same transaction. The insert retains `ON CONFLICT` against the briefing's unique `(week_start, week_end, metric_code, dimensions, definition_version)` key; this also permits dimensions removed by a corrected source snapshot to disappear without exposing a partial publication. No schema is created at runtime. The flow writes `data/pipelines/logs/pipeline-runs.jsonl` with mode-restricted local permissions, one `running` record and one terminal record per invocation; records include start/end timestamps, processed source row count, written aggregate count, status and redacted error metadata. Generated logs are git-ignored. This local JSONL audit is suitable for development; production deployments should move it to the approved durable operational store.
+
 #### Idempotencia ante fallas durante la carga
 
 La carga se implementará como publicación transaccional por semana y definición KPI; no se marcará un run como exitoso hasta que los agregados y sus metadatos queden confirmados en la misma transacción.
@@ -104,7 +108,9 @@ Registrar primero `running`; terminar la ejecución actualizando estado, fin, co
 
 ---
 
-### Fase 4 — Mapeo a Prefect (diseño, aún no implementado)
+### Fase 4 — Mapeo a Prefect y CLI
+
+The Prefect flow is directly executable from the repository root with `python data/pipelines/pipeline.py`. By default it selects the previous fully completed ISO week; `--week-start YYYY-MM-DD` selects a specific Monday. The planned reporting cycle is Monday 07:00 `America/Los_Angeles`, subject to owner confirmation; installing a production scheduler/deployment remains separate from this CLI implementation.
 
 La orquestación propuesta usa Prefect 3. El flujo principal `executive_weekly_report_flow(week_start, trigger_type, idempotency_key)` coordina una publicación semanal M01. Sus etapas son tasks independientes, con entradas/salidas serializables y `run_id` compartido para trazabilidad:
 
@@ -250,12 +256,13 @@ Track operational measures separately from business KPIs: run success/failure, d
 
 ## 10. Reporting service interface
 
-`services/reporting/` owns the HTTP boundary and may import the pipeline's public entry point. The read-only weekly endpoint is implemented and integrated with the existing FastAPI application; refresh remains planned:
+`services/reporting/` owns the HTTP boundary and imports the public pipeline interfaces; it does not duplicate ETL logic. The routes are integrated with the existing FastAPI application:
 
+- `GET /reporting/executive/status?week_start=YYYY-MM-DD` — latest local pipeline audit record, optionally scoped to an ISO week; no ETL execution.
 - `GET /reporting/executive/weekly?week_start=YYYY-MM-DD` — read a completed week, returning period, generation time, metrics, units, dimensions and coverage status. An omitted week requests the latest available one; an explicit `week_start` must be a Monday (UTC ISO-week boundary).
-- `POST /reporting/executive/weekly/refresh` — planned controlled/manual refresh for authorized operators; validate week bounds and make invocation idempotent. Do not expose unrestricted arbitrary pipeline execution publicly.
+- `POST /reporting/executive/weekly/refresh` — controlled manual run of `executive_weekly_report_flow(week_start, trigger_type="manual", idempotency_key=...)`; protected by `REPORTING_OPERATOR_TOKEN` in `X-Reporting-Operator-Key` and deduplicated by `Idempotency-Key`.
 
-These routes are distinct from `GET /telemetry/report`; they read/report business aggregates and do not recalculate technical telemetry metrics. Return null for blocked metric values and include status/reason. The weekly read endpoint is wired into the existing FastAPI application. Authentication/authorization, response caching, refresh permissions and refresh orchestration remain unresolved and must be reviewed before production use.
+These routes are distinct from `GET /telemetry/report`; the KPI endpoint returns the briefing row fields from `reporting.executive_weekly_kpis`, including M01–M10 `metric_code`, `definition_version`, nullable `metric_value`, `unit`, `status`, `status_reason`, approved `dimensions`, `numerator`, `denominator`, `source_watermark`, `calculated_at`, and `run_id`, grouped under `week_start`, `week_end`, and `metrics`. Blocked values remain null. Manual refresh fails closed (503) until an operator token is configured; production deployment still requires secret management, least-privilege DB roles, and operational review.
 
 ## 11. Implementation sequence
 

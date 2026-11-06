@@ -8,6 +8,7 @@ and future services.
 """
 
 import logging
+import sys
 import time
 from pathlib import Path
 
@@ -16,10 +17,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
+from app.db import get_db
 from app.routers.incidents import router as incidents_router
 from app.routers.telemetry import router as telemetry_router
 from app.routers.telemetry_reports import router as telemetry_reports_router
 from app.schemas.health import HealthResponse
+
+# The reporting service is a sibling package in the monorepo and is copied
+# alongside the API in the container image.
+_REPOSITORY_ROOT = next(
+    (
+        parent
+        for parent in Path(__file__).resolve().parents
+        if (parent / "services" / "reporting" / "api.py").is_file()
+    ),
+    None,
+)
+if _REPOSITORY_ROOT is not None and str(_REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPOSITORY_ROOT))
+
+from services.reporting.api import create_reporting_router
 
 # Import inventory routers
 from app.routers import articles, inventory
@@ -72,6 +89,7 @@ def create_app() -> FastAPI:
     application.include_router(incidents_router)
     application.include_router(telemetry_router)
     application.include_router(telemetry_reports_router)
+    application.include_router(create_reporting_router(get_db))
     application.include_router(articles.router)
     application.include_router(inventory.router)
 
@@ -81,6 +99,7 @@ def create_app() -> FastAPI:
     # NO se re-incluye incidents_router: su prefijo ya es /api/v1/incidents.
     application.include_router(telemetry_router, prefix="/api")
     application.include_router(telemetry_reports_router, prefix="/api")
+    application.include_router(create_reporting_router(get_db), prefix="/api")
     application.include_router(articles.router, prefix="/api")
     application.include_router(inventory.router, prefix="/api")
 
