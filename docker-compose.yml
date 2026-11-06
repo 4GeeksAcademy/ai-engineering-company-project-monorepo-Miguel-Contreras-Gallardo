@@ -31,8 +31,8 @@ services:
   # ── API FastAPI ────────────────────────────────────────────────────────────
   api:
     build:
-      context: services/
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/Dockerfile
     container_name: trackflow-api
     restart: unless-stopped
     ports:
@@ -44,7 +44,7 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-trackflow}:${POSTGRES_PASSWORD:-trackflow}@postgres:5432/${POSTGRES_DB:-trackflow}
       DEBUG: ${DEBUG:-true}
     volumes:
-      - ./services/api:/app
+      - ./services/api/app:/app/app
     depends_on:
       postgres:
         condition: service_healthy
