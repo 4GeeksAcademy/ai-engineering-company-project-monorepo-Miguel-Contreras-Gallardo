@@ -6,6 +6,35 @@
 
 ---
 
+## 📅 Sesión 2026-11-06 — Reporting ejecutivo (continuidad Fase 2)
+
+### Objetivo
+Retomar el endpoint semanal de reporting ejecutivo, revisar contrato/pruebas y cerrar validaciones seguras sin implementar ni inventar KPIs de negocio.
+
+### Logros
+- [x] Revisado el contrato del pipeline y la implementación `GET /reporting/executive/weekly` en `services/reporting/`.
+- [x] Se mantiene separado el reporte técnico de telemetría del producto de KPIs ejecutivos persistidos.
+- [x] Añadida validación para aceptar `week_start` explícito solo en lunes UTC (límite de semana ISO), con prueba de regresión para respuesta 422.
+- [x] Actualizado `data/pipelines/PIPELINE_DESIGN.md`: el GET de lectura está implementado/integrado; refresh, autorización, caché y orquestación siguen pendientes.
+- [x] Documentado el diseño concreto de M01: propósito ejecutivo, fuentes y formatos, frecuencia propuesta, diagrama de etapas, tratamiento de actualizaciones y deduplicación, destino `reporting.executive_weekly_kpis` y endpoints ejecutivos status/refresh/consulta con su estado real.
+- [x] Se explicitó el bloqueo por falta de tabla autoritativa de envíos/fecha prometida: `shipment_delivered` aporta evento de entrega, pero no el denominador de envíos elegibles.
+- [x] Añadida estrategia fase 3 de publicación atómica: claves lógicas con UNIQUE, staging, advisory lock por semana, upsert/rollback, avance de watermark solo tras commit y reintentos sin duplicados.
+- [x] Diseñado el log operacional `reporting.pipeline_runs`, con campos mínimos, finalidad de auditoría, estados, conteos, watermarks y errores redactados.
+- [x] Mapeada la orquestación propuesta a Prefect 3: flow `executive_weekly_report_flow`, tasks de extracción/transformación/carga/finalización, estados `Running`/`Completed`/`Failed`, uso de Prefect Blocks y backfill opcional.
+- [x] Aclarado que no se instaló Prefect ni se desplegó runtime; el mapeo es diseño y no implica credenciales configuradas.
+- [x] Diseñada Fase 5 de integración: endpoints separados de telemetría para status, refresh manual autorizado/idempotente y feed semanal del dashboard, cada uno asociado a función/flow propuesto en `data/pipelines/`.
+- [x] Incorporado vocabulario TrackFlow de M01 y envíos (`shipmentId`, `shipment_delivered`, `deliveredAt`, `promisedDate`, `onTime`, cohorte elegible, `country` solo autoritativo); si falta denominador completo, valor `null` y estado `blocked`.
+- [x] Documentada la diferencia entre contratos futuros y estado real: el GET semanal existe, status/refresh no; no se añadieron endpoints ni ETL a `services/`.
+- [x] Verificación: `services/reporting/tests` (7 passed) y `services/api/tests/test_telemetry_analysis.py` (2 passed).
+
+### Próximo paso
+- Acordar el sistema dueño/contrato de envíos y el acceso al esquema; luego definir DDL/migración y permisos mínimos para `reporting.executive_weekly_kpis` y `reporting.pipeline_runs`, más pruebas de fallos/reintentos. No habilitar refresh sin controles ni elevar M01 bloqueado a disponible.
+
+### Estado del árbol
+- Los cambios de la rama y archivos locales no están confirmados. Conservarlos; no hacer commit ni revertir sin autorización del usuario.
+
+---
+
 ## 📅 Sesión 1 — 2026-09-23
 
 ### Objetivo
@@ -246,3 +275,21 @@ Realizar auditoría Lighthouse completa, aplicar correcciones incrementales y re
 | Tests funcionales | **14 (incidents) + 15 (inventory portable) + 10 (inventory postgres)** | 2026-10-14 |
 | Archivos en agents/rules/ | **7** | 2026-09-23 |
 | Backoffice operativo | **1 (inventory)** | 2026-10-14 |
+
+---
+
+## 📅 Sesión 6 — 2026-11-05
+
+### Objetivo
+Iniciar el pipeline de reporting ejecutivo y completar su fase 1: documentar el estado de telemetría/reporte técnico e identificar una brecha de negocio que requiera pipeline dedicado.
+
+### Logros
+- [x] Añadida sección **Estado Actual** a `data/pipelines/PIPELINE_DESIGN.md`.
+- [x] Documentados eventos instrumentados en backoffice, persistencia de ingesta vía Supabase REST en `telemetry_events` y alcance/limitaciones de `GET /telemetry/report`.
+- [x] Identificada la brecha M01: tasa de entregas a tiempo por país contra objetivo >97%; faltan denominador/cohorte completa, fecha prometida, estado de pendientes/tardíos, reglas de elegibilidad y país desde fuente autoritativa.
+- [x] Registrada la continuidad en `memory-bank/active-context.md`.
+
+### Siguiente sesión
+- Continuar con fase 2 según el contrato en `data/pipelines/company-BRIEFING.md` y el diseño `data/pipelines/PIPELINE_DESIGN.md`.
+- Revisar primero los cambios locales sin commit en `services/api/`, `services/reporting/`, `data/pipelines/` y UIs; no sobrescribirlos ni confirmarlos sin revisar.
+- Validar el endpoint de reporting semanal y sus tests antes de implementar cambios adicionales.
