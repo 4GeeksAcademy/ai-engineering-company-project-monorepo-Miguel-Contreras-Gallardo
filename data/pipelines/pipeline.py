@@ -601,6 +601,46 @@ def create_eval_snapshot_task(rows: list[dict[str, Any]]) -> dict[str, Any]:
     return _create_optional_eval_snapshot(rows)
 
 
+@flow(name="extract_executive_m01_sources_subflow", log_prints=False)
+def extract_executive_m01_sources_subflow(week_start: date) -> dict[str, Any]:
+    """Extract the explicit source snapshot needed to calculate KPI M01."""
+    return extract_sources_task(week_start)
+
+
+@flow(name="transform_m01_on_time_delivery_rate_subflow", log_prints=False)
+def transform_m01_on_time_delivery_rate_subflow(
+    extraction: dict[str, Any], run_id: str
+) -> dict[str, Any]:
+    """Validate source staging and calculate the M01 on-time delivery rate."""
+    return transform_validate_m01_task(extraction, run_id)
+
+
+@flow(name="load_executive_weekly_kpis_subflow", log_prints=False)
+def load_executive_weekly_kpis_subflow(
+    transformed: dict[str, Any],
+) -> dict[str, Any]:
+    """Publish a complete M01 snapshot to reporting.executive_weekly_kpis."""
+    task_state = load_weekly_kpis_task(transformed, return_state=True)
+    if task_state.is_failed():
+        raise RuntimeError("M01 publication task failed")
+    if hasattr(task_state, "result"):
+        return task_state.result()
+    return task_state
+
+
+@flow(name="export_m01_evaluation_snapshot_subflow", log_prints=False)
+def export_m01_evaluation_snapshot_subflow(
+    rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Create the optional aggregate-only evaluation snapshot for M01."""
+    task_state = create_eval_snapshot_task(rows, return_state=True)
+    if task_state.is_failed():
+        raise RuntimeError("Optional M01 evaluation export failed")
+    if hasattr(task_state, "result"):
+        return task_state.result()
+    return task_state
+
+
 @flow(name="executive_weekly_report_flow", log_prints=False)
 def executive_weekly_report_flow(
     week_start: date,
@@ -629,13 +669,17 @@ def executive_weekly_report_flow(
     logger.info("Starting executive weekly reporting run_id=%s", run_id)
 
     try:
-        extraction = extract_sources_task(week_start)
+        extraction = extract_executive_m01_sources_subflow(week_start)
         records_processed = extraction.get("telemetry_count", 0) + extraction.get(
             "shipment_count", 0
         )
-        transformed = transform_validate_m01_task(extraction, run_id)
+        transformed = transform_m01_on_time_delivery_rate_subflow(
+            extraction, run_id
+        )
         transformed["run_id"] = run_id
-        loaded_state = load_weekly_kpis_task(transformed, return_state=True)
+        loaded_state = load_executive_weekly_kpis_subflow(
+            transformed, return_state=True
+        )
         if loaded_state.is_failed():
             logger.error("KPI destination load failed; source and transform completed")
             final_status = "failed"
@@ -654,7 +698,7 @@ def executive_weekly_report_flow(
 
             # A failed optional snapshot must never turn successful publication into
             # a failed flow. Prefect returns the task's failed state on this call.
-            optional_state = create_eval_snapshot_task(
+            optional_state = export_m01_evaluation_snapshot_subflow(
                 transformed["rows"], return_state=True
             )
             if optional_state.is_failed():
@@ -732,10 +776,14 @@ def executive_report_backfill_flow(
 
 __all__ = [
     "create_eval_snapshot_task",
+    "export_m01_evaluation_snapshot_subflow",
+    "extract_executive_m01_sources_subflow",
     "executive_report_backfill_flow",
     "executive_weekly_report_flow",
     "extract_sources_task",
+    "load_executive_weekly_kpis_subflow",
     "load_weekly_kpis_task",
+    "transform_m01_on_time_delivery_rate_subflow",
     "transform_validate_m01_task",
 ]
 

@@ -65,6 +65,7 @@
     if (activeView === "view-inventory") return "/inventory";
     if (activeView === "view-company") return "/company";
     if (activeView === "view-dashboard") return "/";
+    if (activeView === "view-reporting") return "/other";
     return "/other";
   }
 

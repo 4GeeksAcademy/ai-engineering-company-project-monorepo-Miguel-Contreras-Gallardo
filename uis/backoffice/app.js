@@ -166,6 +166,73 @@ async function loadTelemetryReport() {
   }
 }
 
+// ---- Executive business reporting ----
+const EXECUTIVE_KPIS = [
+  { code: "M01", name: "On-time delivery rate", unit: "percent", readiness: "Pendiente: falta una cohorte completa de envíos elegibles y una promesa de entrega autoritativa." },
+  { code: "M02", name: "Average picking time", unit: "minutes/order", readiness: "Pendiente: hay que acordar el intervalo de picking y alinear sus marcas de tiempo." },
+  { code: "M03", name: "Return rate", unit: "percent", readiness: "Pendiente: falta vincular las devoluciones a una cohorte madura de envíos." },
+  { code: "M04", name: "Automatic CX resolution rate", unit: "percent", readiness: "Pendiente: falta la población completa de tickets elegibles y sus reglas de resolución." },
+  { code: "M05", name: "Executive data freshness", unit: "seconds", readiness: "Cobertura parcial hasta disponer de marcas de actualización fiables de todas las fuentes." },
+  { code: "M06", name: "Shipping cost per kg", unit: "currency/kg", readiness: "Pendiente: faltan costes liquidados, moneda normalizada y peso facturable." },
+  { code: "M07", name: "Deployment lead time", unit: "duration", readiness: "Pendiente: falta correlacionar las aprobaciones con las marcas de producción." },
+  { code: "M08", name: "Incidents resolved within SLA", unit: "percent", readiness: "Pendiente: faltan el ciclo de vida de incidentes de negocio y las reglas de SLA." },
+  { code: "M09", name: "Stockout transitions", unit: "count", readiness: "Pendiente: falta una fuente fiable de transiciones de stock agotado." },
+  { code: "M10", name: "B2B customer satisfaction", unit: "score (0–10)", readiness: "Pendiente: falta definir la encuesta, la población elegible y la fuente de respuestas." },
+];
+
+function formatKpiValue(metric, definition) {
+  if (metric.metric_value === null || metric.metric_value === undefined) return "No disponible";
+  const value = Number(metric.metric_value);
+  if (!Number.isFinite(value)) return "No disponible";
+  if (metric.unit === "percent" || definition.unit === "percent") return `${value.toLocaleString("es-ES", { maximumFractionDigits: 2 })}%`;
+  return `${value.toLocaleString("es-ES", { maximumFractionDigits: 2 })} ${escapeHtml(metric.unit || definition.unit)}`;
+}
+
+function renderExecutiveKpis(report) {
+  const metrics = Array.isArray(report.metrics) ? report.metrics : [];
+  const byCode = new Map();
+  for (const metric of metrics) {
+    if (!byCode.has(metric.metric_code)) byCode.set(metric.metric_code, []);
+    byCode.get(metric.metric_code).push(metric);
+  }
+  document.getElementById("executive-kpi-grid").innerHTML = EXECUTIVE_KPIS.map((definition) => {
+    const rows = byCode.get(definition.code) || [];
+    const metric = rows.find((row) => !row.dimensions || Object.keys(row.dimensions).length === 0);
+    const status = metric?.status || "blocked";
+    const value = metric ? formatKpiValue(metric, definition) : "No disponible";
+    const reason = metric?.status_reason || definition.readiness;
+    const stateLabel = status === "available" ? "Disponible" : status === "partial" ? "Cobertura parcial" : status === "not_applicable" ? "No aplica" : "Pendiente de datos";
+    const audit = metric && metric.numerator !== null && metric.numerator !== undefined
+      ? `<p class="kpi-audit">Numerador / denominador: ${escapeHtml(String(metric.numerator))}${metric.denominator !== null && metric.denominator !== undefined ? ` / ${escapeHtml(String(metric.denominator))}` : ""}</p>` : "";
+    return `<article class="executive-kpi-card status-${escapeHtml(status)}">
+      <div class="kpi-card-heading"><span class="kpi-code">${definition.code}</span><span class="kpi-status">${stateLabel}</span></div>
+      <h3>${definition.name}</h3><strong class="kpi-value">${value}</strong>
+      <p class="kpi-unit">${escapeHtml(metric?.unit || definition.unit)}</p>
+      <p class="kpi-reason">${escapeHtml(reason || "Sin detalle de cobertura disponible.")}</p>${audit}
+    </article>`;
+  }).join("");
+  refreshIcons();
+}
+
+async function loadExecutiveReport() {
+  const status = document.getElementById("reporting-status");
+  const period = document.getElementById("reporting-period");
+  status.textContent = "Cargando el último informe publicado…";
+  try {
+    const report = await api("/reporting/executive/weekly");
+    period.textContent = report.week_start && report.week_end
+      ? `Semana ${report.week_start} — ${report.week_end} (fin exclusivo)` : "Período no informado por el servicio";
+    renderExecutiveKpis(report);
+    status.textContent = "Informe consultado desde los resultados publicados de reporting.";
+  } catch (error) {
+    period.textContent = "Período no disponible";
+    status.textContent = /404|no executive weekly report/i.test(error.message)
+      ? "Aún no hay un informe semanal publicado. Los indicadores no se muestran como cero."
+      : "No se pudo consultar el informe. Comprueba la conexión e inténtalo de nuevo.";
+    renderExecutiveKpis({ metrics: [] });
+  }
+}
+
 // ---- Inventory (existing code enhanced) ----
 
 async function api(path, options = {}) {
@@ -545,7 +612,7 @@ window.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
       const view = item.dataset.view;
       switchView(view);
-      const sectionName = ({ dashboard: "dashboard", inventory: "inventory", company: "other", telemetry: "other" })[view] || "other";
+      const sectionName = ({ dashboard: "dashboard", inventory: "inventory", company: "other", telemetry: "other", reporting: "other" })[view] || "other";
       window.track("section_viewed", {
         sectionId: view,
         sectionName,
@@ -553,10 +620,11 @@ window.addEventListener("DOMContentLoaded", () => {
         viewedAt: new Date().toISOString(),
         ...(state.currentView ? { referrerSection: state.currentView } : {}),
       });
+      if (view === "reporting") loadExecutiveReport();
       if (state.currentView && state.viewStartedAt) {
         window.track("section_viewed", {
           sectionId: state.currentView,
-          sectionName: ({ dashboard: "dashboard", inventory: "inventory", company: "other" })[state.currentView] || "other",
+          sectionName: ({ dashboard: "dashboard", inventory: "inventory", company: "other", telemetry: "other", reporting: "other" })[state.currentView] || "other",
           sourceApp: "backoffice",
           viewedAt: new Date(state.viewStartedAt).toISOString(),
           durationSeconds: Math.max(0, Math.floor((Date.now() - state.viewStartedAt) / 1_000)),
@@ -602,6 +670,8 @@ window.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll("[data-close]").forEach((button) => {
     button.addEventListener("click", () => document.querySelector(`#${button.dataset.close}`).close());
   });
+
+  document.getElementById("reporting-refresh").addEventListener("click", loadExecutiveReport);
 
   refreshIcons();
 

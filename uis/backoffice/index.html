@@ -25,6 +25,7 @@
       <a class="nav-item active" data-view="dashboard" href="#"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></a>
       <a class="nav-item" data-view="inventory" href="#"><i data-lucide="boxes"></i><span>Inventario</span></a>
       <a class="nav-item" data-view="company" href="#"><i data-lucide="building"></i><span>Empresa</span></a>
+      <a class="nav-item" data-view="reporting" href="#"><i data-lucide="chart-no-axes-combined"></i><span>KPIs ejecutivos</span></a>
       <a class="nav-item" data-view="telemetry" href="/telemetry"><i data-lucide="activity"></i><span>Telemetría</span></a>
       <a class="nav-item disabled" href="#" aria-disabled="true"><i data-lucide="package-check"></i><span>Pedidos</span></a>
       <a class="nav-item disabled" href="#" aria-disabled="true"><i data-lucide="truck"></i><span>Envíos</span></a>
@@ -201,6 +202,26 @@
         </tbody>
       </table>
     </section>
+  </main>
+
+  <!-- ===== EXECUTIVE BUSINESS REPORTING VIEW ===== -->
+  <main id="view-reporting" class="view">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">DIRECCIÓN · RESULTADOS DE NEGOCIO</p>
+        <h1>Indicadores ejecutivos</h1>
+      </div>
+      <div class="header-actions">
+        <button class="button secondary" id="reporting-refresh" type="button"><i data-lucide="refresh-cw"></i>Actualizar</button>
+      </div>
+    </header>
+    <section class="workspace reporting-intro" aria-live="polite">
+      <div><h2>Informe semanal</h2><p>Resultados publicados para la última semana disponible. Los indicadores sin datos completos se identifican claramente; no se sustituyen por estimaciones.</p></div>
+      <p id="reporting-period" class="reporting-period">Buscando período…</p>
+    </section>
+    <p id="reporting-status" class="reporting-status" role="status" aria-live="polite">Cargando informe…</p>
+    <section id="executive-kpi-grid" class="executive-kpi-grid" aria-label="Indicadores ejecutivos M01 a M10"></section>
+    <p class="reporting-footnote">Los valores reflejan únicamente agregados publicados por el sistema de reporting. La ausencia de un valor no equivale a cero ni indica por sí sola un incumplimiento.</p>
   </main>
 
   <!-- ===== TECHNICAL TELEMETRY VIEW ===== -->
