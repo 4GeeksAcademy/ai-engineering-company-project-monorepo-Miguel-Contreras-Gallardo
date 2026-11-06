@@ -5,6 +5,7 @@ Panel operativo interno con tres vistas:
 - **Dashboard** — Pantalla de inicio con datos de la empresa, departamentos y estado de la API
 - **Inventario** — Gestión de artículos, lotes y movimientos con señal de reorden (consumiendo API REST)
 - **Empresa** — Información de TrackFlow (equipo directivo, datos clave) extraída de la documentación interna
+- **KPIs ejecutivos** — Informe semanal M01–M10 servido por `/api/reporting/executive/weekly`; publica únicamente valores almacenados por reporting y señala cobertura ausente/parcial sin estimaciones
 
 ## Datos de empresa visibles en la interfaz
 
@@ -35,6 +36,8 @@ El servicio también expone hooks centrales para el futuro proveedor de autentic
 El capturador vanilla equivale al patrón `reportWebVitals` de Next.js mediante `PerformanceObserver`: mide TTFB, FCP, LCP, CLS e INP cuando el navegador los soporta, emite una sola medición final disponible por métrica y página y envía al ocultar/salir de la página. `pageRoute` solo puede ser `/`, `/inventory`, `/company` o `/other`; no se usa `location.href` ni se adjuntan query strings o hashes. Las mediciones no son KPIs de negocio y el endpoint actual no las persiste.
 
 La interfaz instrumenta las vistas existentes (`dashboard`, `inventory`, `company`), las interacciones de inventario, latencia de llamadas a la API, errores técnicos sanitizados y Web Vitals. Las rutas de API se normalizan antes de medirlas (sin query strings ni SKU) y los errores no incluyen mensaje ni stack. El umbral para la señal de petición lenta es `window.__TRACKFLOW_CONFIG__.API_SLOW_REQUEST_MS` (3.000 ms por defecto). La emisión de telemetría no persiste los eventos todavía: el endpoint local responde con el conteo recibido.
+
+La vista de KPIs consulta los agregados publicados por el endpoint de reporting y muestra estado, período, unidad y motivo de cobertura. M01–M10 siguen las definiciones de `data/pipelines/company-BRIEFING.md`; un KPI ausente no se interpreta como cero. En el estado actual, solo M01 dispone de una transformación de pipeline y puede seguir bloqueado si no existe una cohorte autoritativa completa.
 
 Este backoffice no es productor de eventos de envíos, picking, devoluciones, CX, informes, despliegues, SLA de negocio, stock agotado ni salud de cliente. Esos KPIs deben instrumentarse en sus fuentes transaccionales/monitor autoritativo; no se deben simular desde las pantallas de inventario.
 
