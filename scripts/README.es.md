@@ -7,16 +7,19 @@ Esta carpeta contiene **scripts auxiliares** del monorepo: automatizaciones de d
 
 ## Forecasting de ventas
 
-`forecast_sales.py` carga `data/raw/trackflow_sales.csv`, convierte valores vacíos
-en nulos, elimina filas incompletas y usa únicamente las filas `consolidated`.
-Divide temporalmente los datos: 2016–2023 para entrenamiento y 2024–2025 para
+`forecast_sales.py` carga `data/raw/trackflow_sales.csv`, valida las columnas
+documentadas de TrackFlow, convierte valores vacíos en nulos, elimina filas
+incompletas y usa únicamente las filas `consolidated`. Divide temporalmente los
+datos en los primeros 8 años para entrenamiento y los 2 más recientes para
 prueba. Las variables causales usan calendario, retardos y medias móviles
 calculadas solo con valores anteriores.
 
 Se eligió `RandomForestRegressor` porque hay solo 120 observaciones mensuales,
 permite relaciones no lineales, es rápido de ajustar y ofrece una opción
-razonablemente interpretable. No se escala: los árboles no requieren escalado
-para comparar magnitudes.
+razonablemente interpretable sin una búsqueda de hiperparámetros costosa. Las
+variables se escalan con `StandardScaler` dentro de un `Pipeline`; el escalador
+se ajusta exclusivamente con entrenamiento y evita comparaciones erróneas entre
+magnitudes.
 
 El script reporta:
 
@@ -28,6 +31,10 @@ El script reporta:
 Un MSE bajo no basta: puede ocultar cambios de distribución, mala ordenación de
 los meses o un ajuste pobre relativo a la variabilidad real. Por eso se
 reportan también PSI, Gini y K2.
+
+Además, se genera `data/process/trackflow_sales_forecast.png`, con los valores
+reales de los 2 años de prueba, la predicción y una banda P10-P90 calculada a
+partir de las predicciones de los árboles del bosque.
 
 Ejecutar con:
 

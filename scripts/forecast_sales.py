@@ -1,9 +1,11 @@
-"""Train and evaluate the TrackFlow monthly sales forecasting model.
+"""Train, evaluate, and plot the TrackFlow monthly sales forecast.
 
 Random Forest is used because the documented dataset has only 120 monthly
 observations, can contain nonlinear seasonal effects, and needs a quick,
 reasonably explainable model rather than an expensive hyperparameter search.
-Tree splits are invariant to feature scale, so no scaler is fitted or applied.
+Although tree splits are scale-invariant, a StandardScaler is included in the
+pipeline so the preprocessing contract remains explicit and can be extended
+without changing the estimator.
 
 The test period is never used to fit the imputation, model, or any other
 learned preprocessing step.  Missing and whitespace-only values are treated
@@ -19,8 +21,11 @@ from typing import Final
 
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 
 EXPECTED_COLUMNS: Final[tuple[str, ...]] = (
@@ -31,7 +36,8 @@ EXPECTED_COLUMNS: Final[tuple[str, ...]] = (
     "market",
 )
 TARGET: Final[str] = "revenue_eur"
-TRAIN_END: Final[pd.Timestamp] = pd.Timestamp("2024-01-01")
+YEARS_FOR_TRAINING: Final[int] = 8
+YEARS_FOR_TESTING: Final[int] = 2
 
 
 def load_and_clean(path: Path) -> pd.DataFrame:
@@ -84,8 +90,17 @@ def split_temporally(
     frame: pd.DataFrame, features: pd.DataFrame, target: pd.Series
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """Return the first eight years for training and the last two for testing."""
-    train_mask = frame["month"] < TRAIN_END
-    test_mask = ~train_mask
+    first_year = int(frame["month"].dt.year.min())
+    last_year = int(frame["month"].dt.year.max())
+    expected_last_year = first_year + YEARS_FOR_TRAINING + YEARS_FOR_TESTING - 1
+    if last_year != expected_last_year:
+        raise ValueError(
+            "Expected ten consecutive calendar years, from "
+            f"{first_year} to {expected_last_year}; received through {last_year}."
+        )
+    train_end = pd.Timestamp(year=first_year + YEARS_FOR_TRAINING, month=1, day=1)
+    train_mask = frame["month"] < train_end
+    test_mask = frame["month"] >= train_end
     usable = features.notna().all(axis=1)
     train_mask &= usable
     test_mask &= usable
@@ -145,21 +160,76 @@ def calculate_metrics(
     }
 
 
-def train_and_evaluate(path: Path) -> dict[str, object]:
-    """Train only on 2016-2023 and evaluate only on 2024-2025."""
+def plot_forecast(
+    frame: pd.DataFrame,
+    y_test: pd.Series,
+    predictions: np.ndarray,
+    lower: np.ndarray,
+    upper: np.ndarray,
+    output_path: Path,
+) -> None:
+    """Save test observations, forecast, and tree-derived variability band."""
+    test_months = frame.loc[y_test.index, "month"]
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    figure, axis = plt.subplots(figsize=(11, 5))
+    axis.plot(test_months, y_test, label="Real", color="#1f2937", marker="o")
+    axis.plot(test_months, predictions, label="Predicción", color="#2563eb")
+    axis.fill_between(
+        test_months,
+        lower,
+        upper,
+        color="#93c5fd",
+        alpha=0.35,
+        label="Variabilidad (P10-P90)",
+    )
+    axis.set(
+        title="TrackFlow: ventas reales frente a predicción (2 años de prueba)",
+        xlabel="Mes",
+        ylabel="Ingresos (EUR)",
+    )
+    axis.legend()
+    axis.grid(alpha=0.2)
+    figure.tight_layout()
+    figure.savefig(output_path, dpi=150)
+    plt.close(figure)
+
+
+def train_and_evaluate(
+    path: Path,
+    plot_path: Path = Path("data/process/trackflow_sales_forecast.png"),
+) -> dict[str, object]:
+    """Train on the first eight years and evaluate on the latest two."""
     frame = load_and_clean(path)
     features, target = make_features(frame)
     x_train, x_test, y_train, y_test = split_temporally(frame, features, target)
-    model = RandomForestRegressor(
-        n_estimators=300, random_state=42, n_jobs=-1, min_samples_leaf=2
+    model = Pipeline(
+        steps=[
+            ("scaler", StandardScaler()),
+            (
+                "regressor",
+                RandomForestRegressor(
+                    n_estimators=300,
+                    random_state=42,
+                    n_jobs=-1,
+                    min_samples_leaf=2,
+                ),
+            ),
+        ]
     )
     model.fit(x_train, y_train)
     predictions = model.predict(x_test)
+    forest = model.named_steps["regressor"]
+    tree_predictions = np.vstack(
+        [tree.predict(model.named_steps["scaler"].transform(x_test)) for tree in forest.estimators_]
+    )
+    lower, upper = np.percentile(tree_predictions, [10, 90], axis=0)
+    plot_forecast(frame, y_test, predictions, lower, upper, plot_path)
     return {
         "train_rows": int(len(x_train)),
         "test_rows": int(len(x_test)),
         "test_start": frame.loc[y_test.index, "month"].min().date().isoformat(),
         "test_end": frame.loc[y_test.index, "month"].max().date().isoformat(),
+        "plot_path": str(plot_path),
         "metrics": calculate_metrics(y_train, y_test, predictions),
     }
 
@@ -172,8 +242,14 @@ def main() -> None:
         type=Path,
         default=Path("data/raw/trackflow_sales.csv"),
     )
+    parser.add_argument(
+        "--plot",
+        type=Path,
+        default=Path("data/process/trackflow_sales_forecast.png"),
+        help="Path for the real-vs-predicted forecast plot.",
+    )
     args = parser.parse_args()
-    print(json.dumps(train_and_evaluate(args.dataset), indent=2))
+    print(json.dumps(train_and_evaluate(args.dataset, args.plot), indent=2))
 
 
 if __name__ == "__main__":
