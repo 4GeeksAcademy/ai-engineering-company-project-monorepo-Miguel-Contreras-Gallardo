@@ -16,22 +16,22 @@ Retomar el endpoint semanal de reporting ejecutivo, revisar contrato/pruebas y c
 - [x] Se mantiene separado el reporte técnico de telemetría del producto de KPIs ejecutivos persistidos.
 - [x] Añadida validación para aceptar `week_start` explícito solo en lunes UTC (límite de semana ISO), con prueba de regresión para respuesta 422.
 - [x] Actualizado `data/pipelines/PIPELINE_DESIGN.md`: el GET de lectura está implementado/integrado; refresh, autorización, caché y orquestación siguen pendientes.
-- [x] Documentado el diseño concreto de M01: propósito ejecutivo, fuentes y formatos, frecuencia propuesta, diagrama de etapas, tratamiento de actualizaciones y deduplicación, destino `reporting.executive_weekly_kpis` y endpoints ejecutivos status/refresh/consulta con su estado real.
-- [x] Se explicitó el bloqueo por falta de tabla autoritativa de envíos/fecha prometida: `shipment_delivered` aporta evento de entrega, pero no el denominador de envíos elegibles.
+- [x] Documentado el diseño concreto de M01: propósito ejecutivo, fuentes y formatos, frecuencia propuesta, etapas, deduplicación, destino `reporting.executive_weekly_kpis` y endpoints con su estado real.
+- [x] Explicitado el bloqueo por falta de tabla autoritativa de envíos/fecha prometida: `shipment_delivered` aporta evento de entrega, pero no el denominador de envíos elegibles.
 - [x] Añadida estrategia fase 3 de publicación atómica: claves lógicas con UNIQUE, staging, advisory lock por semana, upsert/rollback, avance de watermark solo tras commit y reintentos sin duplicados.
-- [x] Diseñado el log operacional `reporting.pipeline_runs`, con campos mínimos, finalidad de auditoría, estados, conteos, watermarks y errores redactados.
-- [x] Mapeada la orquestación propuesta a Prefect 3: flow `executive_weekly_report_flow`, tasks de extracción/transformación/carga/finalización, estados `Running`/`Completed`/`Failed`, uso de Prefect Blocks y backfill opcional.
+- [x] Diseñado el log operacional `reporting.pipeline_runs`, con campos mínimos, auditoría, estados, conteos, watermarks y errores redactados.
+- [x] Mapeada la orquestación propuesta a Prefect 3: flow `executive_weekly_report_flow`, tasks de extracción/transformación/carga/finalización, estados `Running`/`Completed`/`Failed`, Prefect Blocks y backfill opcional.
 - [x] Aclarado que no se instaló Prefect ni se desplegó runtime; el mapeo es diseño y no implica credenciales configuradas.
-- [x] Diseñada Fase 5 de integración: endpoints separados de telemetría para status, refresh manual autorizado/idempotente y feed semanal del dashboard, cada uno asociado a función/flow propuesto en `data/pipelines/`.
+- [x] Diseñada Fase 5 de integración: endpoints separados para status, refresh manual autorizado/idempotente y feed semanal del dashboard, cada uno asociado a función/flow propuesto en `data/pipelines/`.
 - [x] Incorporado vocabulario TrackFlow de M01 y envíos (`shipmentId`, `shipment_delivered`, `deliveredAt`, `promisedDate`, `onTime`, cohorte elegible, `country` solo autoritativo); si falta denominador completo, valor `null` y estado `blocked`.
 - [x] Documentada la diferencia entre contratos futuros y estado real: el GET semanal existe, status/refresh no; no se añadieron endpoints ni ETL a `services/`.
-- [x] Verificación: `services/reporting/tests` (7 passed) y `services/api/tests/test_telemetry_analysis.py` (2 passed).
+- [x] Verificación registrada: `services/reporting/tests` (7 passed) y `services/api/tests/test_telemetry_analysis.py` (2 passed).
 
 ### Próximo paso
-- Acordar el sistema dueño/contrato de envíos y el acceso al esquema; luego definir DDL/migración y permisos mínimos para `reporting.executive_weekly_kpis` y `reporting.pipeline_runs`, más pruebas de fallos/reintentos. No habilitar refresh sin controles ni elevar M01 bloqueado a disponible.
+Acordar el sistema dueño/contrato de envíos y el acceso al esquema; luego definir DDL/migración y permisos mínimos para `reporting.executive_weekly_kpis` y `reporting.pipeline_runs`, más pruebas de fallos/reintentos. No habilitar refresh sin controles ni elevar M01 bloqueado a disponible.
 
 ### Estado del árbol
-- Los cambios de la rama y archivos locales no están confirmados. Conservarlos; no hacer commit ni revertir sin autorización del usuario.
+Los cambios de la rama y archivos locales no están confirmados. Conservarlos; no hacer commit ni revertir sin autorización del usuario.
 
 ---
 
@@ -293,3 +293,37 @@ Iniciar el pipeline de reporting ejecutivo y completar su fase 1: documentar el 
 - Continuar con fase 2 según el contrato en `data/pipelines/company-BRIEFING.md` y el diseño `data/pipelines/PIPELINE_DESIGN.md`.
 - Revisar primero los cambios locales sin commit en `services/api/`, `services/reporting/`, `data/pipelines/` y UIs; no sobrescribirlos ni confirmarlos sin revisar.
 - Validar el endpoint de reporting semanal y sus tests antes de implementar cambios adicionales.
+
+---
+
+## 📅 Sesión 7 — 2026-11-13
+
+### Objetivo
+Preparar el entorno de forecasting de ventas de TrackFlow usando exclusivamente el dataset histórico real y su briefing empresarial, sin fabricar ni simular datos.
+
+### Logros
+- [x] Leído `CONTEXT.md` completo; confirma que TrackFlow es empresa de logística y no define columnas ni estacionalidad de un dataset de ventas.
+- [x] Instalado `uv 0.13.8`; el `pyproject.toml` raíz ya existía, por lo que no se ejecutó `uv init`.
+- [x] Separadas `scikit-learn`, `pandas` y `matplotlib` en el extra opcional `[forecasting]` del `pyproject.toml`; `uv.lock` actualizado y `uv lock --check` pasó.
+- [x] `uv sync --no-default-groups` instaló correctamente las dependencias base y las importaciones de `httpx`, `pydantic` y `sqlalchemy` pasaron.
+- [ ] No se pudo instalar el extra `[forecasting]` en Alpine/musl: scikit-learn no tiene wheel compatible y la compilación desde fuente se detuvo. Activarlo en entorno glibc compatible con `uv sync --extra forecasting`.
+- [ ] XGBoost omitido porque su resolución trajo `nvidia-nccl-cu13`, incompatible con la plataforma musl actual.
+- [ ] Búsqueda local, en `/workspaces` y en el remoto disponible no encontró `trackflow_sales.csv` ni `CONTEXT-trackflow.md`. El repositorio de referencia del curso no está configurado/accesible desde este workspace; solicitar URL o archivos al usuario.
+- [x] No se generaron datos sintéticos ni código de forecasting. La implementación queda bloqueada hasta recibir los archivos reales desde el repositorio de referencia del curso.
+
+### Para retomar
+1. Solicitar URL del repo de referencia del curso o recibir directamente `trackflow_sales.csv` y `CONTEXT-trackflow.md`.
+2. Copiar el CSV a `data/raw/trackflow_sales.csv` y leer el briefing completo antes de escribir código.
+3. En entorno Linux glibc compatible, instalar el extra con `uv sync --extra forecasting`.
+4. Revisar `git status` antes de editar: hay cambios preexistentes sin commit en otras áreas; preservarlos.
+
+---
+
+## 📅 Sesión 8 — 2026-11-18
+
+- [x] Instalado `uv 0.13.9` con el instalador oficial y verificado en el `PATH`. No se ejecutó `uv init` porque `pyproject.toml` ya existía.
+- [x] Confirmado el extra `forecasting` con `uv add --optional forecasting --no-sync scikit-learn pandas matplotlib`; `uv lock --check` pasó. Se optó por Random Forest en `scikit-learn`, sin añadir XGBoost.
+- [ ] Instalación del extra pendiente: `uv sync --locked --extra forecasting --no-build` falló porque `scikit-learn==1.9.1` no tiene wheel compatible con el entorno musl actual. Retomar en un entorno glibc compatible.
+- [ ] Preparación y entrenamiento pausados: `data/raw/` está restringido y falta el briefing específico de ventas. No se generaron datos, no se escribieron scripts y no se entrenó ningún modelo.
+
+Ver [active-context.md](./active-context.md) para retomar con una fuente autorizada, leer el briefing completo y preparar la división cronológica de 8 años de entrenamiento y 2 de prueba.
