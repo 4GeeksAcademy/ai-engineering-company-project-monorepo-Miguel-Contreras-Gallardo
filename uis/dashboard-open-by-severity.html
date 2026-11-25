@@ -269,12 +269,12 @@
 
         // ── Detect API base URL ───────────────────────────────────────────
         function getApiBase() {
-            // If opened directly from file system, try localhost
+            // Mismo origen (relativo): el proxy /api/* de la UI reenvía al backend.
+            // Solo si se abre desde el sistema de archivos (file:) se usa localhost.
             if (window.location.protocol === 'file:') {
                 return 'http://localhost:8000';
             }
-            // Otherwise same origin
-            return window.location.origin;
+            return '';
         }
 
         // ── Fetch data ────────────────────────────────────────────────────

@@ -13,3 +13,28 @@ Por ejemplo:
 - Actúa como Lead Data Engineer experto en Logística. Necesito diseñar la especificación técnica para la API de Inventario Unificado y el Pipeline de Ingesta de Pedidos de TrackFlow (operaciones en Los Ángeles y Zaragoza).
 - Actúa como Desarrollador Senior backend. Diseña la lógica del "Motor de Selección Inteligente de Transportistas" de TrackFlow para EE. UU. (UPS, FedEx, DHL) y España (MRW, SEUR, DHL + locales).
 - Actúa como Lead BI & AI Solutions Architect. Vas a diseñar el sistema de Business Intelligence y el Asistente AI para el CEO de TrackFlow (Thomas/Daniel), eliminando la consolidación manual de los domingos.
+
+
+
+
+
+# Correr todo en el Codespace
+
+## 1. Website (puerto 3000)
+```bash
+cd /workspaces/ai-engineering-company-project-monorepo-Miguel-Contreras-Gallardo/uis/website
+python3 -m http.server 3000 --bind 0.0.0.0
+```
+
+## 2. Backoffice (puerto 3001)
+```bash
+cd /workspaces/ai-engineering-company-project-monorepo-Miguel-Contreras-Gallardo/uis/backoffice
+python3 -m http.server 3001 --bind 0.0.0.0
+```
+
+## 3. API (puerto 8000)
+```bash
+cd /workspaces/ai-engineering-company-project-monorepo-Miguel-Contreras-Gallardo/services/api
+source .venv/bin/activate
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
