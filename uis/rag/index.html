@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TrackFlow · Base de conocimiento</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 760px; margin: 3rem auto; padding: 0 1rem; color: #172033; }
+    textarea { width: 100%; min-height: 7rem; padding: .75rem; box-sizing: border-box; }
+    button { margin-top: .75rem; padding: .65rem 1rem; cursor: pointer; }
+    #answer { white-space: pre-wrap; margin-top: 1.5rem; }
+    .source { color: #526070; font-size: .9rem; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #172033; color: #f3f4f6; }
+      textarea { background: #253149; color: #f3f4f6; border-color: #64748b; }
+      button { background: #93c5fd; color: #172033; border: 0; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Base de conocimiento TrackFlow</h1>
+  <form id="question-form">
+    <label for="question">Pregunta</label>
+    <textarea id="question" required placeholder="¿Cuál es la ventana de devolución estándar?"></textarea>
+    <button type="submit">Consultar</button>
+  </form>
+  <p id="status" role="status" aria-live="polite"></p>
+  <article id="answer"></article>
+  <script>
+    const form = document.querySelector("#question-form");
+    const status = document.querySelector("#status");
+    const answer = document.querySelector("#answer");
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      status.textContent = "Consultando...";
+      answer.textContent = "";
+      try {
+        const response = await fetch("/knowledge/query", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({question: document.querySelector("#question").value})
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || "No se pudo consultar la base.");
+        status.textContent = "";
+        answer.textContent = result.answer;
+      } catch (error) {
+        status.textContent = `Error: ${error.message}`;
+      }
+    });
+  </script>
+</body>
+</html>

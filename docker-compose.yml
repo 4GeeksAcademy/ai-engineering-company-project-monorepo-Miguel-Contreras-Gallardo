@@ -28,6 +28,23 @@ services:
     networks:
       - trackflow-net
 
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: trackflow-qdrant
+    restart: unless-stopped
+    ports:
+      - "${QDRANT_HTTP_PORT:-6333}:6333"
+      - "${QDRANT_GRPC_PORT:-6334}:6334"
+    volumes:
+      - qdrantdata:/qdrant/storage
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://localhost:6333/readyz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - trackflow-net
+
   # ── API FastAPI ────────────────────────────────────────────────────────────
   api:
     build:
@@ -43,10 +60,13 @@ services:
       # La URL usa el nombre del servicio (postgres), no localhost
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-trackflow}:${POSTGRES_PASSWORD:-trackflow}@postgres:5432/${POSTGRES_DB:-trackflow}
       DEBUG: ${DEBUG:-true}
+      QDRANT_URL: http://qdrant:6333
     volumes:
       - ./services/api/app:/app/app
     depends_on:
       postgres:
+        condition: service_healthy
+      qdrant:
         condition: service_healthy
     command: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
     networks:
@@ -72,6 +92,7 @@ services:
 
 volumes:
   pgdata:
+  qdrantdata:
 
 networks:
   trackflow-net:

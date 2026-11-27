@@ -1,0 +1,34 @@
+[
+  {
+    "question": "¿Qué transportista ofrece mejores tarifas en Zaragoza para paquetes menores a 2 kg?",
+    "expected_document": "trackflow-carrier-coverage.es"
+  },
+  {
+    "question": "¿Quién debe aprobar una excepción manual en la selección de transportista?",
+    "expected_document": "trackflow-carrier-coverage.es"
+  },
+  {
+    "question": "¿Cuál es la ventana estándar de devolución y quién gestiona las devoluciones internacionales?",
+    "expected_document": "trackflow-returns-policy.es"
+  },
+  {
+    "question": "¿En qué casos TrackFlow asume el costo del envío de devolución?",
+    "expected_document": "trackflow-returns-policy.es"
+  },
+  {
+    "question": "¿Qué compensación aplica si el SLA de entrega cae por debajo del 90% dos meses consecutivos?",
+    "expected_document": "trackflow-sla-delivery.es"
+  },
+  {
+    "question": "¿Cuánto puede extenderse el tiempo de entrega en Black Friday o Rebajas de enero?",
+    "expected_document": "trackflow-sla-delivery.es"
+  },
+  {
+    "question": "¿Cuál es la tarifa estándar de almacenamiento por metro cúbico en Los Ángeles y en Zaragoza?",
+    "expected_document": "trackflow-storage-pricing.es"
+  },
+  {
+    "question": "¿A partir de qué día se aplica el recargo del 150% por inventario de larga duración y quién negocia tarifas preferenciales?",
+    "expected_document": "trackflow-storage-pricing.es"
+  }
+]

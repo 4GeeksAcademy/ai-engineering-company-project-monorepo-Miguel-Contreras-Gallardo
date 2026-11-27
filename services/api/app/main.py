@@ -21,6 +21,7 @@ from app.db import get_db
 from app.routers.incidents import router as incidents_router
 from app.routers.telemetry import router as telemetry_router
 from app.routers.telemetry_reports import router as telemetry_reports_router
+from app.routers.rag import router as rag_router
 from app.schemas.health import HealthResponse
 
 # The reporting service is a sibling package in the monorepo and is copied
@@ -43,6 +44,7 @@ from app.routers import articles, inventory
 
 logger = logging.getLogger("api.timing")
 UI_DIRECTORY = Path(__file__).resolve().parents[3] / "uis"
+RAG_UI_DIRECTORY = UI_DIRECTORY / "rag"
 
 
 def create_app() -> FastAPI:
@@ -85,6 +87,11 @@ def create_app() -> FastAPI:
     )
 
     application.mount("/ui", StaticFiles(directory=UI_DIRECTORY, html=True), name="ui")
+    application.mount(
+        "/rag",
+        StaticFiles(directory=RAG_UI_DIRECTORY, html=True),
+        name="rag-ui",
+    )
 
     application.include_router(incidents_router)
     application.include_router(telemetry_router)
@@ -92,6 +99,7 @@ def create_app() -> FastAPI:
     application.include_router(create_reporting_router(get_db))
     application.include_router(articles.router)
     application.include_router(inventory.router)
+    application.include_router(rag_router)
 
     # Alias bajo /api para que las rutas RELATIVAS del frontend (/api/articles/,
     # /api/inventory/*, /api/telemetry/events) también existan cuando el frontend
